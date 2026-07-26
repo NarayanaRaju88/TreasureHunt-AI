@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/extensions/context_extensions.dart';
+import '../../../core/providers/service_providers.dart';
 import '../../../core/routes/app_router.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../main.dart';
 
 /// Content for a single onboarding page.
 class _OnboardPage {
@@ -73,11 +73,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   bool get _isLast => _index == _pages.length - 1;
 
-  Future<void> _finish() async {
-    final prefs = ref.read(sharedPreferencesProvider);
-    await prefs.setBool(AppConstants.keyOnboardingComplete, true);
-    if (mounted) context.goNamed(AppRoutes.login);
+Future<void> _finish() async {
+  final prefs = ref.read(sharedPreferencesProvider);
+
+  await prefs.setBool(
+    AppConstants.keyOnboardingComplete,
+    true,
+  );
+
+  if (mounted) {
+    context.goNamed(AppRoutes.login);
   }
+}
 
   void _next() {
     if (_isLast) {
