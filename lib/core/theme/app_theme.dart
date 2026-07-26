@@ -4,8 +4,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 
-/// Theme extension that exposes glassmorphism related tokens so widgets can
-/// consume them via `Theme.of(context).extension<GlassmorphismTheme>()`.
+/// Theme extension that exposes glassmorphism-related tokens.
+///
+/// Widgets can access it using:
+///
+/// Theme.of(context).extension<GlassmorphismTheme>()
 @immutable
 class GlassmorphismTheme extends ThemeExtension<GlassmorphismTheme> {
   const GlassmorphismTheme({
@@ -40,18 +43,28 @@ class GlassmorphismTheme extends ThemeExtension<GlassmorphismTheme> {
   }
 
   @override
-  GlassmorphismTheme lerp(ThemeExtension<GlassmorphismTheme>? other, double t) {
-    if (other is! GlassmorphismTheme) return this;
+  GlassmorphismTheme lerp(
+    covariant ThemeExtension<GlassmorphismTheme>? other,
+    double t,
+  ) {
+    if (other is! GlassmorphismTheme) {
+      return this;
+    }
+
     return GlassmorphismTheme(
-      tint: Color.lerp(tint, other.tint, t)!,
-      borderColor: Color.lerp(borderColor, other.borderColor, t)!,
-      shadowColor: Color.lerp(shadowColor, other.shadowColor, t)!,
+      tint: Color.lerp(tint, other.tint, t) ?? tint,
+      borderColor: Color.lerp(borderColor, other.borderColor, t) ??
+          borderColor,
+      shadowColor:
+          Color.lerp(shadowColor, other.shadowColor, t) ?? shadowColor,
       blurSigma: _lerpDouble(blurSigma, other.blurSigma, t),
       borderRadius: _lerpDouble(borderRadius, other.borderRadius, t),
     );
   }
 
-  static double _lerpDouble(double a, double b, double t) => a + (b - a) * t;
+  static double _lerpDouble(double a, double b, double t) {
+    return a + (b - a) * t;
+  }
 
   static const GlassmorphismTheme light = GlassmorphismTheme(
     tint: AppColors.glassLight,
@@ -70,7 +83,7 @@ class GlassmorphismTheme extends ThemeExtension<GlassmorphismTheme> {
   );
 }
 
-/// Theme extension for gamification-specific colors used across the app.
+/// Theme extension for gamification-specific colours.
 @immutable
 class GamificationTheme extends ThemeExtension<GamificationTheme> {
   const GamificationTheme({
@@ -113,16 +126,29 @@ class GamificationTheme extends ThemeExtension<GamificationTheme> {
   }
 
   @override
-  GamificationTheme lerp(ThemeExtension<GamificationTheme>? other, double t) {
-    if (other is! GamificationTheme) return this;
+  GamificationTheme lerp(
+    covariant ThemeExtension<GamificationTheme>? other,
+    double t,
+  ) {
+    if (other is! GamificationTheme) {
+      return this;
+    }
+
     return GamificationTheme(
-      xpBarColor: Color.lerp(xpBarColor, other.xpBarColor, t)!,
-      xpBarTrackColor: Color.lerp(xpBarTrackColor, other.xpBarTrackColor, t)!,
-      bronze: Color.lerp(bronze, other.bronze, t)!,
-      silver: Color.lerp(silver, other.silver, t)!,
-      gold: Color.lerp(gold, other.gold, t)!,
-      platinum: Color.lerp(platinum, other.platinum, t)!,
-      legendary: Color.lerp(legendary, other.legendary, t)!,
+      xpBarColor:
+          Color.lerp(xpBarColor, other.xpBarColor, t) ?? xpBarColor,
+      xpBarTrackColor: Color.lerp(
+            xpBarTrackColor,
+            other.xpBarTrackColor,
+            t,
+          ) ??
+          xpBarTrackColor,
+      bronze: Color.lerp(bronze, other.bronze, t) ?? bronze,
+      silver: Color.lerp(silver, other.silver, t) ?? silver,
+      gold: Color.lerp(gold, other.gold, t) ?? gold,
+      platinum: Color.lerp(platinum, other.platinum, t) ?? platinum,
+      legendary:
+          Color.lerp(legendary, other.legendary, t) ?? legendary,
     );
   }
 
@@ -137,84 +163,148 @@ class GamificationTheme extends ThemeExtension<GamificationTheme> {
   );
 }
 
-/// Central place for building the app's Material 3 light and dark themes.
+/// Central theme configuration for the application.
 class AppTheme {
   AppTheme._();
 
   static const double _radius = 16;
 
-  static ThemeData get light => _buildTheme(Brightness.light);
-  static ThemeData get dark => _buildTheme(Brightness.dark);
+  /// Light Material 3 theme.
+  static ThemeData get light {
+    return _buildTheme(Brightness.light);
+  }
+
+  /// Dark Material 3 theme.
+  static ThemeData get dark {
+    return _buildTheme(Brightness.dark);
+  }
 
   static ThemeData _buildTheme(Brightness brightness) {
     final bool isDark = brightness == Brightness.dark;
 
     final ColorScheme colorScheme = ColorScheme(
       brightness: brightness,
+
+      // Primary
       primary: AppColors.primary,
       onPrimary: AppColors.onPrimary,
-      primaryContainer: isDark ? AppColors.primaryDark : AppColors.primaryLight,
-      onPrimaryContainer: isDark ? AppColors.white : AppColors.primaryDark,
+      primaryContainer:
+          isDark ? AppColors.primaryDark : AppColors.primaryLight,
+      onPrimaryContainer:
+          isDark ? AppColors.white : AppColors.primaryDark,
+
+      // Secondary
       secondary: AppColors.accent,
       onSecondary: AppColors.onAccent,
-      secondaryContainer: isDark ? AppColors.accentDark : AppColors.accentLight,
-      onSecondaryContainer: isDark ? AppColors.white : AppColors.accentDark,
+      secondaryContainer:
+          isDark ? AppColors.accentDark : AppColors.accentLight,
+      onSecondaryContainer:
+          isDark ? AppColors.white : AppColors.accentDark,
+
+      // Tertiary
       tertiary: AppColors.tertiary,
       onTertiary: AppColors.white,
+
+      // Error
       error: AppColors.error,
       onError: AppColors.onError,
-      surface: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-      onSurface: isDark ? AppColors.darkOnSurface : AppColors.lightOnSurface,
-      surfaceContainerHighest:
-          isDark ? AppColors.darkSurfaceVariant : AppColors.lightSurfaceVariant,
-      onSurfaceVariant: isDark ? AppColors.grey400 : AppColors.grey600,
-      outline: isDark ? AppColors.darkOutline : AppColors.lightOutline,
-      outlineVariant: isDark ? AppColors.grey800 : AppColors.grey300,
+
+      // Surface
+      surface:
+          isDark ? AppColors.darkSurface : AppColors.lightSurface,
+      onSurface:
+          isDark ? AppColors.darkOnSurface : AppColors.lightOnSurface,
+
+      surfaceContainerHighest: isDark
+          ? AppColors.darkSurfaceVariant
+          : AppColors.lightSurfaceVariant,
+
+      onSurfaceVariant:
+          isDark ? AppColors.grey400 : AppColors.grey600,
+
+      // Borders
+      outline:
+          isDark ? AppColors.darkOutline : AppColors.lightOutline,
+
+      outlineVariant:
+          isDark ? AppColors.grey800 : AppColors.grey300,
+
+      // System colours
       shadow: AppColors.black,
       scrim: AppColors.black,
-      inverseSurface: isDark ? AppColors.lightSurface : AppColors.darkSurface,
-      onInverseSurface: isDark ? AppColors.black : AppColors.white,
+
+      inverseSurface:
+          isDark ? AppColors.lightSurface : AppColors.darkSurface,
+
+      onInverseSurface:
+          isDark ? AppColors.black : AppColors.white,
+
       inversePrimary: AppColors.primaryLight,
     );
 
-    final TextTheme baseTextTheme =
-        isDark ? Typography.whiteMountainView : Typography.blackMountainView;
-    final TextTheme textTheme = GoogleFonts.poppinsTextTheme(baseTextTheme);
+    final TextTheme baseTextTheme = isDark
+        ? Typography.whiteMountainView
+        : Typography.blackMountainView;
+
+    final TextTheme textTheme =
+        GoogleFonts.poppinsTextTheme(baseTextTheme);
 
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor:
-          isDark ? AppColors.darkBackground : AppColors.lightBackground,
+
+      scaffoldBackgroundColor: isDark
+          ? AppColors.darkBackground
+          : AppColors.lightBackground,
+
       textTheme: textTheme,
+
       primaryColor: AppColors.primary,
+
       splashFactory: InkRipple.splashFactory,
+
       visualDensity: VisualDensity.adaptivePlatformDensity,
+
+      // ----------------------------------------------------------------------
+      // App Bar
+      // ----------------------------------------------------------------------
       appBarTheme: AppBarTheme(
         elevation: 0,
         scrolledUnderElevation: 1,
         centerTitle: true,
-        backgroundColor:
-            isDark ? AppColors.darkBackground : AppColors.lightBackground,
-        foregroundColor:
-            isDark ? AppColors.darkOnSurface : AppColors.lightOnSurface,
+        backgroundColor: isDark
+            ? AppColors.darkBackground
+            : AppColors.lightBackground,
+        foregroundColor: isDark
+            ? AppColors.darkOnSurface
+            : AppColors.lightOnSurface,
         surfaceTintColor: Colors.transparent,
-        systemOverlayStyle:
-            isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+        systemOverlayStyle: isDark
+            ? SystemUiOverlayStyle.light
+            : SystemUiOverlayStyle.dark,
         titleTextStyle: GoogleFonts.poppins(
           fontSize: 20,
           fontWeight: FontWeight.w600,
-          color: isDark ? AppColors.darkOnSurface : AppColors.lightOnSurface,
+          color: isDark
+              ? AppColors.darkOnSurface
+              : AppColors.lightOnSurface,
         ),
       ),
+
+      // ----------------------------------------------------------------------
+      // Elevated Buttons
+      // ----------------------------------------------------------------------
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.onPrimary,
           disabledBackgroundColor: AppColors.grey400,
           elevation: 2,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 14,
+          ),
           textStyle: GoogleFonts.poppins(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -224,11 +314,18 @@ class AppTheme {
           ),
         ),
       ),
+
+      // ----------------------------------------------------------------------
+      // Filled Buttons
+      // ----------------------------------------------------------------------
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.onPrimary,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 14,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(_radius),
           ),
@@ -238,11 +335,21 @@ class AppTheme {
           ),
         ),
       ),
+
+      // ----------------------------------------------------------------------
+      // Outlined Buttons
+      // ----------------------------------------------------------------------
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.primary,
-          side: const BorderSide(color: AppColors.primary, width: 1.5),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          side: const BorderSide(
+            color: AppColors.primary,
+            width: 1.5,
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 14,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(_radius),
           ),
@@ -252,6 +359,10 @@ class AppTheme {
           ),
         ),
       ),
+
+      // ----------------------------------------------------------------------
+      // Text Buttons
+      // ----------------------------------------------------------------------
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.primary,
@@ -261,106 +372,182 @@ class AppTheme {
           ),
         ),
       ),
+
+      // ----------------------------------------------------------------------
+      // Input Fields
+      // ----------------------------------------------------------------------
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor:
-            isDark ? AppColors.darkSurfaceVariant : AppColors.lightSurfaceVariant,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+
+        fillColor: isDark
+            ? AppColors.darkSurfaceVariant
+            : AppColors.lightSurfaceVariant,
+
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+
         hintStyle: GoogleFonts.poppins(
-          color: isDark ? AppColors.grey500 : AppColors.grey600,
+          color: isDark
+              ? AppColors.grey500
+              : AppColors.grey600,
           fontSize: 14,
         ),
+
         labelStyle: GoogleFonts.poppins(
-          color: isDark ? AppColors.grey400 : AppColors.grey700,
+          color: isDark
+              ? AppColors.grey400
+              : AppColors.grey700,
           fontSize: 14,
         ),
+
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(_radius),
           borderSide: BorderSide.none,
         ),
+
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(_radius),
           borderSide: BorderSide(
-            color: isDark ? AppColors.darkOutline : AppColors.lightOutline,
+            color: isDark
+                ? AppColors.darkOutline
+                : AppColors.lightOutline,
           ),
         ),
+
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(_radius),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          borderSide: const BorderSide(
+            color: AppColors.primary,
+            width: 2,
+          ),
         ),
+
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(_radius),
-          borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+          borderSide: const BorderSide(
+            color: AppColors.error,
+            width: 1.5,
+          ),
         ),
+
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(_radius),
-          borderSide: const BorderSide(color: AppColors.error, width: 2),
+          borderSide: const BorderSide(
+            color: AppColors.error,
+            width: 2,
+          ),
         ),
+
         errorStyle: GoogleFonts.poppins(
           color: AppColors.error,
           fontSize: 12,
         ),
       ),
-      cardTheme: CardTheme(
+
+      // ----------------------------------------------------------------------
+      // Cards
+      // ----------------------------------------------------------------------
+      cardTheme: CardThemeData(
         elevation: 0,
-        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        color: isDark
+            ? AppColors.darkSurface
+            : AppColors.lightSurface,
         surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(_radius + 4),
           side: BorderSide(
-            color: isDark ? AppColors.darkOutline : AppColors.lightOutline,
+            color: isDark
+                ? AppColors.darkOutline
+                : AppColors.lightOutline,
             width: 0.5,
           ),
         ),
       ),
+
+      // ----------------------------------------------------------------------
+      // Chips
+      // ----------------------------------------------------------------------
       chipTheme: ChipThemeData(
-        backgroundColor:
-            isDark ? AppColors.darkSurfaceVariant : AppColors.lightSurfaceVariant,
+        backgroundColor: isDark
+            ? AppColors.darkSurfaceVariant
+            : AppColors.lightSurfaceVariant,
         selectedColor: AppColors.primary,
-        labelStyle: GoogleFonts.poppins(fontSize: 13),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        labelStyle: GoogleFonts.poppins(
+          fontSize: 13,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 6,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
       ),
+
+      // ----------------------------------------------------------------------
+      // Bottom Navigation Bar
+      // ----------------------------------------------------------------------
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor:
-            isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        backgroundColor: isDark
+            ? AppColors.darkSurface
+            : AppColors.lightSurface,
         selectedItemColor: AppColors.primary,
-        unselectedItemColor: isDark ? AppColors.grey500 : AppColors.grey600,
+        unselectedItemColor:
+            isDark ? AppColors.grey500 : AppColors.grey600,
         type: BottomNavigationBarType.fixed,
         elevation: 8,
         selectedLabelStyle: GoogleFonts.poppins(
           fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
-        unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
+        unselectedLabelStyle: GoogleFonts.poppins(
+          fontSize: 12,
+        ),
       ),
+
+      // ----------------------------------------------------------------------
+      // Material 3 Navigation Bar
+      // ----------------------------------------------------------------------
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor:
-            isDark ? AppColors.darkSurface : AppColors.lightSurface,
-        indicatorColor: AppColors.primary.withValues(alpha: 0.18),
-        labelTextStyle: WidgetStateProperty.resolveWith(
-          (states) => GoogleFonts.poppins(
-            fontSize: 12,
-            fontWeight: states.contains(WidgetState.selected)
-                ? FontWeight.w600
-                : FontWeight.w400,
-          ),
+        backgroundColor: isDark
+            ? AppColors.darkSurface
+            : AppColors.lightSurface,
+        indicatorColor:
+            AppColors.primary.withValues(alpha: 0.18),
+        labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>(
+          (states) {
+            return GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: states.contains(WidgetState.selected)
+                  ? FontWeight.w600
+                  : FontWeight.w400,
+            );
+          },
         ),
         elevation: 4,
         height: 68,
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+
+      // ----------------------------------------------------------------------
+      // Floating Action Button
+      // ----------------------------------------------------------------------
+      floatingActionButtonTheme:
+          const FloatingActionButtonThemeData(
         backgroundColor: AppColors.accent,
         foregroundColor: AppColors.onAccent,
         elevation: 4,
       ),
-      dialogTheme: DialogTheme(
-        backgroundColor:
-            isDark ? AppColors.darkSurface : AppColors.lightSurface,
+
+      // ----------------------------------------------------------------------
+      // Dialogs
+      // ----------------------------------------------------------------------
+      dialogTheme: DialogThemeData(
+        backgroundColor: isDark
+            ? AppColors.darkSurface
+            : AppColors.lightSurface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(_radius + 8),
@@ -368,21 +555,35 @@ class AppTheme {
         titleTextStyle: GoogleFonts.poppins(
           fontSize: 18,
           fontWeight: FontWeight.w600,
-          color: isDark ? AppColors.darkOnSurface : AppColors.lightOnSurface,
+          color: isDark
+              ? AppColors.darkOnSurface
+              : AppColors.lightOnSurface,
         ),
       ),
+
+      // ----------------------------------------------------------------------
+      // Bottom Sheets
+      // ----------------------------------------------------------------------
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor:
-            isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        backgroundColor: isDark
+            ? AppColors.darkSurface
+            : AppColors.lightSurface,
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(24),
+          ),
         ),
         showDragHandle: true,
       ),
+
+      // ----------------------------------------------------------------------
+      // Snack Bars
+      // ----------------------------------------------------------------------
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: isDark ? AppColors.grey800 : AppColors.grey900,
+        backgroundColor:
+            isDark ? AppColors.grey800 : AppColors.grey900,
         contentTextStyle: GoogleFonts.poppins(
           color: AppColors.white,
           fontSize: 14,
@@ -391,31 +592,62 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
         ),
       ),
+
+      // ----------------------------------------------------------------------
+      // Dividers
+      // ----------------------------------------------------------------------
       dividerTheme: DividerThemeData(
-        color: isDark ? AppColors.darkOutline : AppColors.lightOutline,
+        color: isDark
+            ? AppColors.darkOutline
+            : AppColors.lightOutline,
         thickness: 0.5,
         space: 1,
       ),
-      progressIndicatorTheme: const ProgressIndicatorThemeData(
+
+      // ----------------------------------------------------------------------
+      // Progress Indicators
+      // ----------------------------------------------------------------------
+      progressIndicatorTheme:
+          const ProgressIndicatorThemeData(
         color: AppColors.primary,
       ),
+
+      // ----------------------------------------------------------------------
+      // Switches
+      // ----------------------------------------------------------------------
       switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? AppColors.primary
-              : AppColors.grey400,
+        thumbColor: WidgetStateProperty.resolveWith<Color?>(
+          (states) {
+            return states.contains(WidgetState.selected)
+                ? AppColors.primary
+                : AppColors.grey400;
+          },
         ),
-        trackColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? AppColors.primaryLight
-              : AppColors.grey300,
+        trackColor: WidgetStateProperty.resolveWith<Color?>(
+          (states) {
+            return states.contains(WidgetState.selected)
+                ? AppColors.primaryLight
+                : AppColors.grey300;
+          },
         ),
       ),
+
+      // ----------------------------------------------------------------------
+      // Icons
+      // ----------------------------------------------------------------------
       iconTheme: IconThemeData(
-        color: isDark ? AppColors.darkOnSurface : AppColors.lightOnSurface,
+        color: isDark
+            ? AppColors.darkOnSurface
+            : AppColors.lightOnSurface,
       ),
+
+      // ----------------------------------------------------------------------
+      // Custom Theme Extensions
+      // ----------------------------------------------------------------------
       extensions: <ThemeExtension<dynamic>>[
-        isDark ? GlassmorphismTheme.dark : GlassmorphismTheme.light,
+        isDark
+            ? GlassmorphismTheme.dark
+            : GlassmorphismTheme.light,
         GamificationTheme.standard,
       ],
     );
