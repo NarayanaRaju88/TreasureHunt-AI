@@ -7,22 +7,30 @@ import '../../../core/providers/service_providers.dart';
 import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
 
-/// Streams the current authenticated user (or `null` when signed out).
+/// Streams the currently authenticated user.
+///
+/// Emits:
+/// - [UserModel] when a user is signed in.
+/// - `null` when the user is signed out.
 final authStateProvider = StreamProvider<UserModel?>((ref) {
   final repo = ref.watch(authRepositoryProvider);
   return repo.authStateChanges();
 });
 
-/// Convenience: whether a user is currently signed in.
+/// Convenience provider that indicates whether the user is authenticated.
+///
+/// Note:
+/// While the auth stream is still loading, this returns `false`.
 final isSignedInProvider = Provider<bool>((ref) {
-  final state = ref.watch(authStateProvider);
-  return state.maybeWhen(
+  final authState = ref.watch(authStateProvider);
+
+  return authState.maybeWhen(
     data: (user) => user != null,
     orElse: () => false,
   );
 });
 
-/// State of the currently authenticated user, with async status for login flows.
+/// Holds the current authentication state and authentication action status.
 class AuthState {
   const AuthState({
     this.user,
@@ -53,122 +61,239 @@ class AuthState {
   static const AuthState initial = AuthState();
 }
 
-/// Manages authentication actions and exposes the resulting [AuthState].
+/// Manages authentication actions and exposes [AuthState].
 class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier(this._repo) : super(AuthState(user: _repo.currentUser));
+  AuthNotifier(this._repo)
+      : super(
+          AuthState(
+            user: _repo.currentUser,
+          ),
+        );
 
   final AuthRepository _repo;
 
-  /// Sets the current user from the auth stream (called by listeners).
+  /// Updates the state when the authentication stream changes.
   void setUser(UserModel? user) {
+    if (user == null) {
+      state = state.copyWith(
+        clearUser: true,
+        isLoading: false,
+        clearError: true,
+      );
+      return;
+    }
+
     state = state.copyWith(
       user: user,
-      clearUser: user == null,
       isLoading: false,
       clearError: true,
     );
   }
 
-  Future<bool> loginWithEmail(String email, String password) {
-    return _run(() => _repo.signInWithEmail(email, password));
+  /// Signs in with email and password.
+  Future<bool> loginWithEmail(
+    String email,
+    String password,
+  ) {
+    return _run(
+      () => _repo.signInWithEmail(
+        email,
+        password,
+      ),
+    );
   }
 
+  /// Signs in using Google.
   Future<bool> loginWithGoogle() {
-    return _run(() => _repo.signInWithGoogle());
+    return _run(
+      () => _repo.signInWithGoogle(),
+    );
   }
 
+  /// Registers a new account.
   Future<bool> register(
     String email,
     String password, {
     String? displayName,
   }) {
     return _run(
-      () => _repo.registerWithEmail(email, password, displayName: displayName),
+      () => _repo.registerWithEmail(
+        email,
+        password,
+        displayName: displayName,
+      ),
     );
   }
 
+  /// Signs in anonymously as a guest.
   Future<bool> continueAsGuest() {
-    return _run(() => _repo.signInAsGuest());
+    return _run(
+      () => _repo.signInAsGuest(),
+    );
   }
 
+  /// Signs the current user out.
   Future<void> logout() async {
-    state = state.copyWith(isLoading: true, clearError: true);
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+    );
+
     try {
       await _repo.signOut();
+
       state = const AuthState();
     } on AppException catch (e) {
-      state = state.copyWith(isLoading: false, error: e.message);
+      state = state.copyWith(
+        isLoading: false,
+        error: e.message,
+      );
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
     }
   }
 
+  /// Sends a password reset email.
   Future<bool> sendPasswordReset(String email) async {
-    state = state.copyWith(isLoading: true, clearError: true);
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+    );
+
     try {
       await _repo.sendPasswordReset(email);
-      state = state.copyWith(isLoading: false);
+
+      state = state.copyWith(
+        isLoading: false,
+      );
+
       return true;
     } on AppException catch (e) {
-      state = state.copyWith(isLoading: false, error: e.message);
+      state = state.copyWith(
+        isLoading: false,
+        error: e.message,
+      );
+
       return false;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+
       return false;
     }
   }
 
-  Future<bool> updateProfile({String? displayName, String? photoUrl}) async {
-    state = state.copyWith(isLoading: true, clearError: true);
+  /// Updates the signed-in user's profile.
+  Future<bool> updateProfile({
+    String? displayName,
+    String? photoUrl,
+  }) async {
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+    );
+
     try {
       final user = await _repo.updateProfile(
         displayName: displayName,
         photoUrl: photoUrl,
       );
-      state = state.copyWith(user: user, isLoading: false);
+
+      state = state.copyWith(
+        user: user,
+        isLoading: false,
+      );
+
       return true;
     } on AppException catch (e) {
-      state = state.copyWith(isLoading: false, error: e.message);
+      state = state.copyWith(
+        isLoading: false,
+        error: e.message,
+      );
+
       return false;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+
       return false;
     }
   }
 
-  void clearError() => state = state.copyWith(clearError: true);
+  /// Clears the current authentication error.
+  void clearError() {
+    state = state.copyWith(
+      clearError: true,
+    );
+  }
 
-  /// Runs an auth action returning a [UserModel], mapping errors to state.
-  Future<bool> _run(Future<UserModel> Function() action) async {
-    state = state.copyWith(isLoading: true, clearError: true);
+  /// Executes an authentication action and maps errors to [AuthState].
+  Future<bool> _run(
+    Future<UserModel> Function() action,
+  ) async {
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+    );
+
     try {
       final user = await action();
-      state = state.copyWith(user: user, isLoading: false);
-      // Best-effort: register/refresh the FCM token after sign-in.
-      unawaited(_repo.syncFcmToken());
+
+      state = state.copyWith(
+        user: user,
+        isLoading: false,
+      );
+
+      // Best effort only.
+      // Failure to sync the FCM token must not make authentication fail.
+      unawaited(
+        _repo.syncFcmToken().catchError(
+          (_) {},
+        ),
+      );
+
       return true;
     } on AppException catch (e) {
-      state = state.copyWith(isLoading: false, error: e.message);
+      state = state.copyWith(
+        isLoading: false,
+        error: e.message,
+      );
+
       return false;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+
       return false;
     }
   }
 }
 
-/// The primary auth notifier provider. Keeps [AuthNotifier] in sync with the
-/// [authStateProvider] stream.
+/// Primary authentication notifier provider.
 final currentUserProvider =
     StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final repo = ref.watch(authRepositoryProvider);
+
   final notifier = AuthNotifier(repo);
 
-  // Bridge the auth stream into the notifier so external sign-in/out events
-  // (token expiry, other tabs, etc.) update the UI state.
-  ref.listen<AsyncValue<UserModel?>>(authStateProvider, (previous, next) {
-    next.whenData(notifier.setUser);
-  });
+  /// Keep the notifier synchronized with Firebase auth state.
+  ref.listen<AsyncValue<UserModel?>>(
+    authStateProvider,
+    (previous, next) {
+      next.whenData(notifier.setUser);
+    },
+  );
+
+  ref.onDispose(notifier.dispose);
 
   return notifier;
 });
