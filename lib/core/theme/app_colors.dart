@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// Centralized color constants for the AI Treasure Hunt app.
 ///
 /// Primary brand color: #4CAF50 (green)
-/// Accent brand color:  #FFC107 (amber)
+/// Accent brand color: #FFC107 (amber)
 class AppColors {
   AppColors._();
 
@@ -95,24 +95,37 @@ class AppColors {
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
+    colors: [
+      Color(0xFF4CAF50),
+      Color(0xFF2E7D32),
+    ],
   );
 
   static const LinearGradient accentGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFFFD54F), Color(0xFFFFA000)],
+    colors: [
+      Color(0xFFFFD54F),
+      Color(0xFFFFA000),
+    ],
   );
 
   static const LinearGradient sunsetGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xFFFF8A65), Color(0xFFFFC107), Color(0xFF4CAF50)],
+    colors: [
+      Color(0xFFFF8A65),
+      Color(0xFFFFC107),
+      Color(0xFF4CAF50),
+    ],
   );
 
   static const LinearGradient darkGlassGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0x1AFFFFFF), Color(0x0DFFFFFF)],
+    colors: [
+      Color(0x1AFFFFFF),
+      Color(0x0DFFFFFF),
+    ],
   );
 }
