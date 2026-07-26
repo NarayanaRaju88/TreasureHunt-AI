@@ -6,7 +6,7 @@ import '../core/theme/app_theme.dart';
 
 /// Root widget for the AI Treasure Hunt application.
 ///
-/// The app uses:
+/// The application uses:
 /// - Riverpod for state management
 /// - GoRouter for navigation
 /// - AppTheme for centralized Material 3 styling
@@ -21,8 +21,10 @@ class AITreasureHuntApp extends ConsumerWidget {
       title: 'AI Treasure Hunt',
       debugShowCheckedModeBanner: false,
 
-      // Centralized application theme.
+      // Centralized Material 3 themes.
       theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.system,
 
       // GoRouter configuration.
       routerConfig: router,
