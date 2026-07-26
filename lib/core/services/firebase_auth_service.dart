@@ -4,53 +4,58 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../errors/app_exceptions.dart';
 
-/// Thin wrapper around [FirebaseAuth] and [GoogleSignIn].
+/// Thin wrapper around Firebase Authentication and Google Sign-In.
 ///
-/// Translates low-level `FirebaseAuthException`s into the app's
-/// [AuthException] surface so the presentation layer stays clean. This service
-/// only concerns itself with *authentication* — user profile documents in
-/// Firestore are managed by [FirestoreService]/[AuthRepository].
+/// This service is responsible only for authentication.
+/// User profile documents are managed by [AuthRepository] and
+/// [FirestoreService].
 class FirebaseAuthService {
   FirebaseAuthService({
     FirebaseAuth? firebaseAuth,
     GoogleSignIn? googleSignIn,
   })  : _auth = firebaseAuth ?? FirebaseAuth.instance,
-        _googleSignIn = googleSignIn ?? GoogleSignIn(scopes: <String>['email']);
+        _googleSignIn =
+            googleSignIn ?? GoogleSignIn(scopes: <String>['email']);
 
   final FirebaseAuth _auth;
   final GoogleSignIn _googleSignIn;
 
-  /// The currently signed-in user, or `null`.
-  User? getCurrentUser() => _auth.currentUser;
+  /// Returns the currently signed-in Firebase user.
+  User? get currentUser => _auth.currentUser;
 
-  /// Emits the current [User] whenever auth state changes (login/logout).
-  Stream<User?> get authStateStream => _auth.authStateChanges();
-
-  /// Emits on token refresh & profile updates in addition to auth changes.
-  Stream<User?> get userChangesStream => _auth.userChanges();
-
+  /// Returns whether a Firebase user is currently signed in.
   bool get isSignedIn => _auth.currentUser != null;
 
-  /// Signs in using the native Google account picker.
+  /// Emits whenever Firebase authentication state changes.
+  Stream<User?> get authStateStream => _auth.authStateChanges();
+
+  /// Emits whenever the Firebase user changes.
+  Stream<User?> get userChangesStream => _auth.userChanges();
+
+  /// Signs in using Google.
   ///
-  /// Returns `null` if the user cancels the Google chooser.
+  /// Returns `null` when the user cancels the Google account picker.
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      final GoogleSignInAccount? googleUser =
+          await _googleSignIn.signIn();
+
       if (googleUser == null) {
-        // User aborted the sign-in flow.
         return null;
       }
 
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
 
-      final credential = GoogleAuthProvider.credential(
+      final OAuthCredential credential =
+          GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      return await _auth.signInWithCredential(credential);
+      return await _auth.signInWithCredential(
+        credential,
+      );
     } on FirebaseAuthException catch (e) {
       throw AuthException.fromCode(e.code);
     } catch (e, st) {
@@ -63,7 +68,7 @@ class FirebaseAuthService {
     }
   }
 
-  /// Email/password sign-in.
+  /// Signs in using email and password.
   Future<UserCredential> signInWithEmailPassword(
     String email,
     String password,
@@ -85,23 +90,27 @@ class FirebaseAuthService {
     }
   }
 
-  /// Registers a new account with email/password and sets the display name.
+  /// Creates a new email/password account.
   Future<UserCredential> registerWithEmail(
     String email,
     String password, {
     String? displayName,
   }) async {
     try {
-      final cred = await _auth.createUserWithEmailAndPassword(
+      final UserCredential credential =
+          await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
+
       final name = displayName?.trim();
+
       if (name != null && name.isNotEmpty) {
-        await cred.user?.updateDisplayName(name);
-        await cred.user?.reload();
+        await credential.user?.updateDisplayName(name);
+        await credential.user?.reload();
       }
-      return cred;
+
+      return credential;
     } on FirebaseAuthException catch (e) {
       throw AuthException.fromCode(e.code);
     } catch (e, st) {
@@ -114,7 +123,7 @@ class FirebaseAuthService {
     }
   }
 
-  /// Anonymous (guest) sign-in.
+  /// Signs in anonymously.
   Future<UserCredential> signInAsGuest() async {
     try {
       return await _auth.signInAnonymously();
@@ -133,12 +142,14 @@ class FirebaseAuthService {
   /// Signs the user out of Firebase and Google.
   Future<void> signOut() async {
     try {
-      await Future.wait<void>([
-        _auth.signOut(),
-        _googleSignIn.isSignedIn().then(
-              (signedIn) => signedIn ? _googleSignIn.signOut() : Future.value(),
-            ),
-      ]);
+      await _auth.signOut();
+
+      final bool googleSignedIn =
+          await _googleSignIn.isSignedIn();
+
+      if (googleSignedIn) {
+        await _googleSignIn.signOut();
+      }
     } catch (e, st) {
       throw AuthException(
         'Sign-out failed. Please try again.',
@@ -152,7 +163,9 @@ class FirebaseAuthService {
   /// Sends a password reset email.
   Future<void> sendPasswordReset(String email) async {
     try {
-      await _auth.sendPasswordResetEmail(email: email.trim());
+      await _auth.sendPasswordResetEmail(
+        email: email.trim(),
+      );
     } on FirebaseAuthException catch (e) {
       throw AuthException.fromCode(e.code);
     } catch (e, st) {
@@ -165,16 +178,33 @@ class FirebaseAuthService {
     }
   }
 
-  /// Updates the current user's display name and/or photo URL.
-  Future<void> updateProfile({String? displayName, String? photoUrl}) async {
+  /// Updates the current Firebase user's profile.
+  Future<void> updateProfile({
+    String? displayName,
+    String? photoUrl,
+  }) async {
     final user = _auth.currentUser;
+
     if (user == null) {
-      throw const AuthException('No signed-in user to update.',
-          code: 'no-current-user');
+      throw const AuthException(
+        'No signed-in user to update.',
+        code: 'no-current-user',
+      );
     }
+
     try {
-      if (displayName != null) await user.updateDisplayName(displayName.trim());
-      if (photoUrl != null) await user.updatePhotoURL(photoUrl);
+      if (displayName != null) {
+        await user.updateDisplayName(
+          displayName.trim(),
+        );
+      }
+
+      if (photoUrl != null) {
+        await user.updatePhotoURL(
+          photoUrl,
+        );
+      }
+
       await user.reload();
     } on FirebaseAuthException catch (e) {
       throw AuthException.fromCode(e.code);
@@ -188,35 +218,38 @@ class FirebaseAuthService {
     }
   }
 
-  /// Sends an email verification link to the current user.
+  /// Sends email verification to the current user.
   Future<void> sendEmailVerification() async {
     final user = _auth.currentUser;
-    if (user == null || user.emailVerified) return;
+
+    if (user == null || user.emailVerified) {
+      return;
+    }
+
     try {
       await user.sendEmailVerification();
     } catch (e, st) {
-      debugPrint('sendEmailVerification failed: $e\n$st');
+      debugPrint(
+        'sendEmailVerification failed: $e\n$st',
+      );
     }
   }
 
-  /// Stores/updates the FCM token stub on the auth side (no-op placeholder;
-  /// the token is persisted to Firestore via [FirestoreService.updateUser]).
+  /// Returns the supplied FCM token.
   ///
-  /// Kept here so callers have a single obvious entry point; returns the token
-  /// that should be written to the user's Firestore document.
+  /// FCM persistence is handled by the repository and Firestore service.
   Future<String?> updateFcmToken(String? token) async {
-    // The auth layer does not persist the token itself, but we expose this so
-    // the repository can coordinate the write. Returning the token keeps the
-    // contract explicit and testable.
     return token;
   }
 
-  /// Reloads the current user from the server (e.g. after verification).
+  /// Reloads the current Firebase user.
   Future<void> reloadUser() async {
     try {
       await _auth.currentUser?.reload();
     } catch (e, st) {
-      debugPrint('reloadUser failed: $e\n$st');
+      debugPrint(
+        'reloadUser failed: $e\n$st',
+      );
     }
   }
 }
