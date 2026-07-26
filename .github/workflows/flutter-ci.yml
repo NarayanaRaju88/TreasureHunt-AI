@@ -24,7 +24,7 @@ jobs:
           pwd
           echo "Repository contents:"
           ls -la
-          echo "Checking pubspec.yaml:"
+          echo "Checking pubspec.yaml..."
           test -f pubspec.yaml
           echo "pubspec.yaml found successfully."
 
@@ -40,8 +40,8 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Format Dart code
-        run: dart format .
+      - name: Check Dart formatting
+        run: dart format --output=none --set-exit-if-changed .
 
       - name: Analyze Flutter project
         run: flutter analyze
