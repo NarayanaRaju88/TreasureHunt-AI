@@ -1,0 +1,78 @@
+rules_version = '2';
+
+// =============================================================================
+// AI Treasure Hunt — Firebase Storage Security Rules
+//
+// Storage layout (mirrors AppConstants storage paths):
+//   avatars/{uid}/*             -> user profile images (owner-write, public-read)
+//   discovery_photos/{uid}/*    -> photos a user attaches to a discovery
+//   treasure_images/*           -> curated treasure imagery (admin-write)
+//
+// Admin access is granted via a custom auth claim: `request.auth.token.admin`.
+//
+// NOTE ON RATE LIMITING / ABUSE:
+//   Storage rules cannot enforce upload-rate limits. Combine these rules with
+//   Firebase App Check, Cloud Functions triggers for validation/virus-scanning,
+//   and project-level quotas to throttle abusive clients.
+// =============================================================================
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    // Valid image: correct content-type and a sane max size (5 MB).
+    function isValidImage() {
+      return request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // -------------------------------------------------------------------------
+    // Profile images (avatars) — anyone signed-in can view; only the owner can
+    // upload/replace/delete their own avatar, and only valid images.
+    // -------------------------------------------------------------------------
+    match /avatars/{uid}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(uid) && isValidImage();
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // Discovery photos — owner-scoped uploads tied to their uid.
+    // -------------------------------------------------------------------------
+    match /discovery_photos/{uid}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(uid) && isValidImage();
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // Curated treasure imagery — readable by signed-in users, writable by
+    // admins only.
+    // -------------------------------------------------------------------------
+    match /treasure_images/{fileName=**} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() && isValidImage();
+    }
+
+    // -------------------------------------------------------------------------
+    // Default deny.
+    // -------------------------------------------------------------------------
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

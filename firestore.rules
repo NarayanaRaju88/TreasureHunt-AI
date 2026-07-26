@@ -1,0 +1,174 @@
+rules_version = '2';
+
+// =============================================================================
+// AI Treasure Hunt — Cloud Firestore Security Rules
+//
+// Model summary:
+//   users/{uid}                     -> private per-user profile
+//   users/{uid}/treasureHistory/*   -> a user's own discovery history
+//   treasures/{id}                  -> readable by all signed-in users,
+//                                       writable only by admins
+//   achievements/{id}               -> read-only catalog for signed-in users
+//   dailyChallenges/{id}            -> read-only for signed-in users
+//   leaderboard/{id}                -> public-read (signed-in), admin-write
+//
+// Admin access is granted via a custom auth claim: `request.auth.token.admin`.
+// Set it from a trusted backend using the Admin SDK:
+//   admin.auth().setCustomUserClaims(uid, { admin: true })
+//
+// NOTE ON RATE LIMITING:
+//   Firestore rules cannot enforce request-rate limits directly. Abuse
+//   protection (per-user write throttling, burst limits, quota) must be
+//   handled by Cloud Functions, App Check, and Firebase quotas. Enable
+//   Firebase App Check so only genuine app instances can reach these rules.
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // Helper functions
+    // -------------------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && request.auth.token.admin == true;
+    }
+
+    // Basic shape validation for user documents (defense in depth).
+    function isValidUser() {
+      return request.resource.data.keys().hasOnly([
+        'email', 'displayName', 'photoUrl', 'level', 'xp', 'dailyStreak',
+        'lastActiveDate', 'badges', 'achievements', 'totalDiscoveries',
+        'totalWalkingDistance', 'createdAt', 'fcmToken', 'interests', 'isGuest'
+      ]);
+    }
+
+    // -------------------------------------------------------------------------
+    // Users — a user may only read/write their OWN document.
+    // -------------------------------------------------------------------------
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid) && isValidUser();
+      allow update: if (isOwner(uid) && isValidUser()) || isAdmin();
+      allow delete: if isOwner(uid) || isAdmin();
+
+      // -----------------------------------------------------------------------
+      // TreasureHistory — nested under the owning user. Only that user (or an
+      // admin) can access their own discovery history.
+      // -----------------------------------------------------------------------
+      match /treasureHistory/{historyId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isOwner(uid);
+        allow update: if isOwner(uid);
+        allow delete: if isOwner(uid) || isAdmin();
+      }
+
+      // Any other user-scoped subcollections (notifications, sessions, etc.)
+      // remain private to the owner by default.
+      match /{document=**} {
+        allow read, write: if isOwner(uid) || isAdmin();
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // Top-level treasureHistory (if stored flat instead of nested). A document
+    // is only accessible by the user whose `userId` field matches.
+    // -------------------------------------------------------------------------
+    match /treasureHistory/{historyId} {
+      allow read: if isSignedIn()
+        && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn()
+        && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // -------------------------------------------------------------------------
+    // Treasures — readable by all authenticated users; only admins may write.
+    // -------------------------------------------------------------------------
+    match /treasures/{treasureId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+
+      // Per-treasure discovery records (who found it). Readable by signed-in
+      // users; a user may only create their own discovery record.
+      match /discoveries/{discoveryId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn()
+          && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // Hunts / clues — content catalog, read for signed-in, write for admins.
+    // -------------------------------------------------------------------------
+    match /hunts/{huntId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+
+      match /clues/{clueId} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // Achievements — read-only catalog for authenticated users.
+    // -------------------------------------------------------------------------
+    match /achievements/{achievementId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // Daily challenges — read-only for authenticated users.
+    // -------------------------------------------------------------------------
+    match /dailyChallenges/{challengeId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // Badges — read-only catalog for authenticated users.
+    // -------------------------------------------------------------------------
+    match /badges/{badgeId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // Leaderboard — readable by signed-in users. Entries are written by a
+    // trusted backend / Cloud Function (admin), never directly by clients, to
+    // prevent score tampering.
+    // -------------------------------------------------------------------------
+    match /leaderboard/{entryId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // Feedback — users may submit feedback tied to their uid; only admins read.
+    // -------------------------------------------------------------------------
+    match /feedback/{feedbackId} {
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // Default deny — anything not matched above is rejected.
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
