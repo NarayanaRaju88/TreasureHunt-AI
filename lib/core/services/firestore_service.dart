@@ -57,7 +57,7 @@ class FirestoreService {
   /// Creates (or overwrites) a user document.
   Future<void> createUser(UserModel user) async {
     try {
-      await _users.doc(user.id).set(
+      await _users.doc(user.uid).set(
             user.toFirestore(forCreate: true),
             SetOptions(merge: true),
           );
