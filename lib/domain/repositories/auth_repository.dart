@@ -5,7 +5,7 @@ import '../../../core/services/fcm_service.dart';
 import '../../../core/services/firebase_auth_service.dart';
 import '../../../core/services/firestore_service.dart';
 import '../../../core/services/hive_service.dart';
-import '../models/user_model.dart';
+import 'package:treasure_hunt_ai/domain/models/user_model.dart';
 
 /// Contract for authentication and user profile management.
 abstract class AuthRepository {
@@ -164,14 +164,14 @@ class AuthRepositoryImpl implements AuthRepository {
     }
 
     final model = UserModel(
-      id: firebaseUser.uid,
+      uid: firebaseUser.uid,
       email: firebaseUser.email ?? email,
       displayName:
           displayName ??
-          firebaseUser.displayName ??
-          '',
+          firebaseUser.displayName,
       photoUrl: firebaseUser.photoURL,
       createdAt: DateTime.now(),
+      lastActive: DateTime.now(),
     );
 
     // Firebase registration succeeded.
@@ -221,11 +221,12 @@ class AuthRepositoryImpl implements AuthRepository {
     }
 
     final model = UserModel(
-      id: firebaseUser.uid,
+      uid: firebaseUser.uid,
       email: '',
       displayName: 'Guest Explorer',
       isGuest: true,
       createdAt: DateTime.now(),
+      lastActive: DateTime.now(),
     );
 
     try {
@@ -288,7 +289,7 @@ class AuthRepositoryImpl implements AuthRepository {
     );
 
     await _firestore.updateUser(
-      updated.id,
+      updated.uid,
       <String, dynamic>{
         if (displayName != null)
           'displayName': displayName,
@@ -323,7 +324,7 @@ class AuthRepositoryImpl implements AuthRepository {
       }
 
       await _firestore.updateFcmToken(
-        user.id,
+        user.uid,
         token,
       );
 
@@ -372,7 +373,7 @@ class AuthRepositoryImpl implements AuthRepository {
       final cached = _hive.getUser();
 
       if (cached != null &&
-          cached.id == firebaseUser.uid) {
+          cached.uid == firebaseUser.uid) {
         return cached;
       }
     }
@@ -382,15 +383,15 @@ class AuthRepositoryImpl implements AuthRepository {
     }
 
     final model = UserModel(
-      id: firebaseUser.uid,
+      uid: firebaseUser.uid,
       email: firebaseUser.email ?? '',
       displayName:
           fallbackName ??
-          firebaseUser.displayName ??
-          '',
+          firebaseUser.displayName,
       photoUrl: firebaseUser.photoURL,
       isGuest: firebaseUser.isAnonymous,
       createdAt: DateTime.now(),
+      lastActive: DateTime.now(),
     );
 
     try {
