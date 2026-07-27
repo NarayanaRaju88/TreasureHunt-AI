@@ -1,75 +1,89 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class UserModel {
   final String uid;
+  final String email;
   final String? displayName;
-  final String? email;
   final String? photoUrl;
+  final int xp;
   final int level;
-  final int totalXp;
-  final int currentXp;
-  final int dailyStreak;
-  final int totalDiscoveries;
-  final double totalWalkingDistance;
-  final List<String> collectedTreasureIds;
-  final List<String> achievements;
-  final List<String> badges;
+  final bool isGuest;
+  final String? fcmToken;
   final DateTime createdAt;
-  final DateTime lastActiveAt;
-  final Map<String, dynamic> preferences;
+  final DateTime lastActive;
 
-  UserModel({
+  const UserModel({
     required this.uid,
+    required this.email,
     this.displayName,
-    this.email,
     this.photoUrl,
+    this.xp = 0,
     this.level = 1,
-    this.totalXp = 0,
-    this.currentXp = 0,
-    this.dailyStreak = 0,
-    this.totalDiscoveries = 0,
-    this.totalWalkingDistance = 0.0,
-    this.collectedTreasureIds = const [],
-    this.achievements = const [],
-    this.badges = const [],
+    this.isGuest = false,
+    this.fcmToken,
     required this.createdAt,
-    required this.lastActiveAt,
-    this.preferences = const {},
+    required this.lastActive,
   });
+
+  factory UserModel.fromMap(Map<String, dynamic> json) {
+    return UserModel(
+      uid: json['uid'] ?? '',
+      email: json['email'] ?? '',
+      displayName: json['displayName'],
+      photoUrl: json['photoUrl'],
+      xp: json['xp'] ?? 0,
+      level: json['level'] ?? 1,
+      isGuest: json['isGuest'] ?? false,
+      fcmToken: json['fcmToken'],
+      createdAt: _date(json['createdAt']),
+      lastActive: _date(json['lastActive']),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'uid': uid,
+      'email': email,
+      'displayName': displayName,
+      'photoUrl': photoUrl,
+      'xp': xp,
+      'level': level,
+      'isGuest': isGuest,
+      'fcmToken': fcmToken,
+      'createdAt': createdAt,
+      'lastActive': lastActive,
+    };
+  }
 
   UserModel copyWith({
     String? uid,
-    String? displayName,
     String? email,
+    String? displayName,
     String? photoUrl,
+    int? xp,
     int? level,
-    int? totalXp,
-    int? currentXp,
-    int? dailyStreak,
-    int? totalDiscoveries,
-    double? totalWalkingDistance,
-    List<String>? collectedTreasureIds,
-    List<String>? achievements,
-    List<String>? badges,
+    bool? isGuest,
+    String? fcmToken,
     DateTime? createdAt,
-    DateTime? lastActiveAt,
-    Map<String, dynamic>? preferences,
+    DateTime? lastActive,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
-      displayName: displayName ?? this.displayName,
       email: email ?? this.email,
+      displayName: displayName ?? this.displayName,
       photoUrl: photoUrl ?? this.photoUrl,
+      xp: xp ?? this.xp,
       level: level ?? this.level,
-      totalXp: totalXp ?? this.totalXp,
-      currentXp: currentXp ?? this.currentXp,
-      dailyStreak: dailyStreak ?? this.dailyStreak,
-      totalDiscoveries: totalDiscoveries ?? this.totalDiscoveries,
-      totalWalkingDistance: totalWalkingDistance ?? this.totalWalkingDistance,
-      collectedTreasureIds: collectedTreasureIds ?? this.collectedTreasureIds,
-      achievements: achievements ?? this.achievements,
-      badges: badges ?? this.badges,
+      isGuest: isGuest ?? this.isGuest,
+      fcmToken: fcmToken ?? this.fcmToken,
       createdAt: createdAt ?? this.createdAt,
-      lastActiveAt: lastActiveAt ?? this.lastActiveAt,
-      preferences: preferences ?? this.preferences,
+      lastActive: lastActive ?? this.lastActive,
     );
+  }
+
+  static DateTime _date(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    return DateTime.now();
   }
 }
