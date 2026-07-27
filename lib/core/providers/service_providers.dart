@@ -22,6 +22,12 @@ final firebaseAuthServiceProvider = Provider<FirebaseAuthService>((ref) {
   return FirebaseAuthService();
 });
 
+final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
+  throw UnimplementedError(
+    'sharedPreferencesProvider must be overridden in main.dart',
+  );
+});
+
 /// Cloud Firestore data access.
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   return FirestoreService();
