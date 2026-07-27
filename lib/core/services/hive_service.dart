@@ -2,7 +2,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../constants/app_constants.dart';
 import '../errors/app_exceptions.dart';
-import '../../features/auth/models/user_model.dart';
+import '../../domain/models/user_model.dart';
 import '../../features/settings/models/settings_model.dart';
 import '../../features/treasure/models/treasure_history_model.dart';
 
