@@ -6,7 +6,7 @@ import '../../features/gamification/models/achievement_model.dart';
 import '../../features/treasure/models/daily_challenge_model.dart';
 import '../../features/treasure/models/treasure_history_model.dart';
 import '../../features/treasure/models/treasure_model.dart';
-import '../../features/auth/models/user_model.dart';
+import '../../domain/models/user_model.dart';
 
 /// Centralized Firestore data access for the app.
 ///
