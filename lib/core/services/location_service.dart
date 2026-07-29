@@ -44,26 +44,23 @@ class LocationService {
 
   /// Gets a single, current position fix (ensuring permissions first).
   Future<Position> getCurrentLocation({
-    LocationAccuracy accuracy = LocationAccuracy.high,
-  }) async {
-    await requestPermissions();
-    try {
-      return await Geolocator.getCurrentPosition(
-        locationSettings: LocationSettings(
-          accuracy: accuracy,
-          distanceFilter: AppConstants.locationDistanceFilterMeters,
-        ),
-      );
-    } catch (e, st) {
-      throw LocationException(
-        'Could not determine your location. Please try again.',
-        code: 'position-unavailable',
-        cause: e,
-        stackTrace: st,
-      );
-    }
-  }
+  LocationAccuracy accuracy = LocationAccuracy.high,
+}) async {
+  await requestPermissions();
 
+  try {
+    return await Geolocator.getCurrentPosition(
+      desiredAccuracy: accuracy,
+    );
+  } catch (e, st) {
+    throw LocationException(
+      'Could not determine your location. Please try again.',
+      code: 'position-unavailable',
+      cause: e,
+      stackTrace: st,
+    );
+  }
+}
   /// Returns the last known position if available (fast, may be stale).
   Future<Position?> getLastKnownLocation() async {
     try {
@@ -75,16 +72,14 @@ class LocationService {
 
   /// A continuous stream of position updates for live tracking.
   Stream<Position> getLocationStream({
-    LocationAccuracy accuracy = LocationAccuracy.high,
-    int distanceFilterMeters = AppConstants.locationDistanceFilterMeters,
-  }) {
-    return Geolocator.getPositionStream(
-      locationSettings: LocationSettings(
-        accuracy: accuracy,
-        distanceFilter: distanceFilterMeters,
-      ),
-    );
-  }
+  LocationAccuracy accuracy = LocationAccuracy.high,
+  int distanceFilterMeters = AppConstants.locationDistanceFilterMeters,
+}) {
+  return Geolocator.getPositionStream(
+    desiredAccuracy: accuracy,
+    distanceFilter: distanceFilterMeters,
+  );
+}
 
   /// Distance in meters between two coordinates (Haversine).
   double calculateDistance({
