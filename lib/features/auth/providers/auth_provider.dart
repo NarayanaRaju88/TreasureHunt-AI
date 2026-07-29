@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_exceptions.dart';
 import '../../../core/providers/service_providers.dart';
-import '../models/user_model.dart';
+import 'package:ai_treasure_hunt/domain/models/user_model.dart';
 import '../repositories/auth_repository.dart';
 
 /// Streams the currently authenticated user.
