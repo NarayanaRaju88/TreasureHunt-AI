@@ -27,17 +27,33 @@ class UserModel {
 
   factory UserModel.fromMap(Map<String, dynamic> json) {
     return UserModel(
-      uid: json['uid'] ?? '',
-      email: json['email'] ?? '',
-      displayName: json['displayName'],
-      photoUrl: json['photoUrl'],
-      xp: json['xp'] ?? 0,
-      level: json['level'] ?? 1,
-      isGuest: json['isGuest'] ?? false,
-      fcmToken: json['fcmToken'],
-      createdAt: _date(json['createdAt']),
-      lastActive: _date(json['lastActive']),
+      uid: json['uid'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      displayName: json['displayName'] as String?,
+      photoUrl: json['photoUrl'] as String?,
+      xp: (json['xp'] as num?)?.toInt() ?? 0,
+      level: (json['level'] as num?)?.toInt() ?? 1,
+      isGuest: json['isGuest'] as bool? ?? false,
+      fcmToken: json['fcmToken'] as String?,
+      createdAt: _parseDate(json['createdAt']),
+      lastActive: _parseDate(json['lastActive']),
     );
+  }
+
+  factory UserModel.fromJson(Map<String, dynamic> json) {
+    return UserModel.fromMap(json);
+  }
+
+  factory UserModel.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data();
+
+    if (data == null) {
+      throw Exception('User document does not exist.');
+    }
+
+    return UserModel.fromMap(data);
   }
 
   Map<String, dynamic> toMap() {
@@ -50,9 +66,25 @@ class UserModel {
       'level': level,
       'isGuest': isGuest,
       'fcmToken': fcmToken,
-      'createdAt': createdAt,
-      'lastActive': lastActive,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'lastActive': Timestamp.fromDate(lastActive),
     };
+  }
+
+  Map<String, dynamic> toJson() => toMap();
+
+  Map<String, dynamic> toFirestore({
+    bool forCreate = false,
+  }) {
+    final map = toMap();
+
+    if (forCreate) {
+      map['createdAt'] = Timestamp.fromDate(createdAt);
+    }
+
+    map['lastActive'] = Timestamp.fromDate(lastActive);
+
+    return map;
   }
 
   UserModel copyWith({
@@ -81,9 +113,21 @@ class UserModel {
     );
   }
 
-  static DateTime _date(dynamic value) {
-    if (value is Timestamp) return value.toDate();
-    if (value is DateTime) return value;
+  static DateTime _parseDate(dynamic value) {
+    if (value == null) return DateTime.now();
+
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    if (value is String) {
+      return DateTime.tryParse(value) ?? DateTime.now();
+    }
+
     return DateTime.now();
   }
 }
