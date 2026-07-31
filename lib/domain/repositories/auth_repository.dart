@@ -5,7 +5,7 @@ import '../../../core/services/fcm_service.dart';
 import '../../../core/services/firebase_auth_service.dart';
 import '../../../core/services/firestore_service.dart';
 import '../../../core/services/hive_service.dart';
-import 'package:treasure_hunt_ai/domain/models/user_model.dart';
+import 'package:ai_treasure_hunt/domain/models/user_model.dart';
 
 /// Contract for authentication and user profile management.
 abstract class AuthRepository {
