@@ -73,6 +73,10 @@ class UserModel extends Equatable {
     lastActive:_date(map['lastActive']),
   );
 
+  factory UserModel.fromJson(Map<String, dynamic> json) {
+  return UserModel.fromMap(json);
+ }
+
   factory UserModel.fromFirestore(DocumentSnapshot<Map<String,dynamic>> doc){
     final data=doc.data()??<String,dynamic>{};
     data.putIfAbsent('uid',()=>doc.id);
@@ -97,7 +101,23 @@ class UserModel extends Equatable {
     'lastActive':Timestamp.fromDate(lastActive),
   };
 
-  Map<String,dynamic> toFirestore()=>toMap();
+  Map<String, dynamic> toJson() {
+  return toMap();
+  }
+
+  Map<String, dynamic> toFirestore({
+  bool forCreate = false,
+  }) {
+  final map = toMap();
+
+  if (forCreate) {
+    map['createdAt'] = Timestamp.fromDate(createdAt);
+  }
+
+  map['lastActive'] = Timestamp.fromDate(lastActive);
+
+  return map;
+  }
 
   UserModel copyWith({
     String? uid,String? email,String? displayName,String? photoUrl,
