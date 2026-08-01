@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/service_providers.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../auth/models/user_model.dart';
+import '../../../domain/models/user_model.dart';
 import '../models/achievement_model.dart';
 import '../repositories/gamification_repository.dart';
 
