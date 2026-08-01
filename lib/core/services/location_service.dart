@@ -50,8 +50,10 @@ class LocationService {
 
   try {
     return await Geolocator.getCurrentPosition(
-      desiredAccuracy: accuracy,
-    );
+  locationSettings: LocationSettings(
+    accuracy: accuracy,
+    ),
+  );
   } catch (e, st) {
     throw LocationException(
       'Could not determine your location. Please try again.',
