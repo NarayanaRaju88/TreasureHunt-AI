@@ -14,7 +14,7 @@ import '../../../core/widgets/category_icon.dart';
 import '../../../core/widgets/glassmorphic_container.dart';
 import '../../../core/widgets/loading_shimmer.dart';
 import '../../../core/widgets/xp_progress_bar.dart';
-import '../../auth/models/user_model.dart';
+import '../../../domain/models/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../gamification/models/achievement_model.dart';
 import '../../gamification/providers/gamification_provider.dart';
