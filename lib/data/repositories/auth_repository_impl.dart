@@ -8,7 +8,6 @@ import '../../core/services/hive_service.dart';
 import '../../domain/models/user_model.dart';
 import '../../domain/repositories/auth_repository.dart';
 
-/// Firebase implementation of [AuthRepository].
 class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({
     required FirebaseAuthService authService,
@@ -42,6 +41,7 @@ class AuthRepositoryImpl implements AuthRepository {
       final user = await _resolveUser(firebaseUser);
 
       _cachedUser = user;
+
       await _hive.saveUser(user);
 
       return user;
@@ -110,21 +110,32 @@ class AuthRepositoryImpl implements AuthRepository {
       );
     }
 
+    final now = DateTime.now();
+
     final model = UserModel(
-      id: firebaseUser.uid,
+      uid: firebaseUser.uid,
       email: firebaseUser.email ?? email,
       displayName:
           displayName ??
           firebaseUser.displayName ??
           '',
       photoUrl: firebaseUser.photoURL,
-      createdAt: DateTime.now(),
+      xp: 0,
+      level: 1,
+      interests: const [],
+      badges: const [],
+      totalDiscoveries: 0,
+      totalWalkingDistance: 0,
+      isGuest: false,
+      fcmToken: null,
+      createdAt: now,
+      lastActive: now,
     );
 
     try {
       await _firestore.createUser(model);
     } catch (_) {
-      // Firestore failure should never invalidate Firebase registration.
+      // Firebase account already exists even if Firestore write fails.
     }
 
     return _finalize(model);
@@ -143,31 +154,38 @@ class AuthRepositoryImpl implements AuthRepository {
       );
     }
 
-    UserModel? existing;
-
     try {
-      existing = await _firestore.getUser(firebaseUser.uid);
-    } catch (_) {
-      existing = null;
-    }
+      final existing = await _firestore.getUser(firebaseUser.uid);
 
-    if (existing != null) {
-      return _finalize(existing);
-    }
+      if (existing != null) {
+        return _finalize(existing);
+      }
+    } catch (_) {}
 
-    final model = UserModel(
-      id: firebaseUser.uid,
+    final now = DateTime.now();
+
+    final guest = UserModel(
+      uid: firebaseUser.uid,
       email: '',
       displayName: 'Guest Explorer',
+      photoUrl: null,
+      xp: 0,
+      level: 1,
+      interests: const [],
+      badges: const [],
+      totalDiscoveries: 0,
+      totalWalkingDistance: 0,
       isGuest: true,
-      createdAt: DateTime.now(),
+      fcmToken: null,
+      createdAt: now,
+      lastActive: now,
     );
 
     try {
-      await _firestore.createUser(model);
+      await _firestore.createUser(guest);
     } catch (_) {}
 
-    return _finalize(model);
+    return _finalize(guest);
   }
 
   @override
@@ -180,11 +198,10 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<void> sendPasswordReset(
-    String email,
-  ) {
+  Future<void> sendPasswordReset(String email) {
     return _auth.sendPasswordReset(email);
   }
+
     @override
   Future<UserModel> updateProfile({
     String? displayName,
@@ -212,7 +229,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
     try {
       await _firestore.updateUser(
-        updated.id,
+        updated.uid,
         {
           if (displayName != null) 'displayName': displayName,
           if (photoUrl != null) 'photoUrl': photoUrl,
@@ -220,7 +237,7 @@ class AuthRepositoryImpl implements AuthRepository {
         },
       );
     } catch (_) {
-      // Ignore Firestore update failure.
+      // Ignore Firestore failures.
     }
 
     return _finalize(updated);
@@ -230,47 +247,38 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> syncFcmToken() async {
     final user = currentUser;
 
-    if (user == null) {
-      return;
-    }
-
-    if (user.isGuest) {
-      return;
-    }
-
-    if (_fcm == null) {
+    if (user == null || user.isGuest || _fcm == null) {
       return;
     }
 
     try {
       final token = await _fcm!.getToken();
 
-      if (token == null || token.isEmpty) {
-        return;
-      }
-
-      if (token == user.fcmToken) {
+      if (token == null ||
+          token.isEmpty ||
+          token == user.fcmToken) {
         return;
       }
 
       await _firestore.updateFcmToken(
-        user.id,
+        user.uid,
         token,
       );
 
-      final updated = user.copyWith(
-        fcmToken: token,
+      await _finalize(
+        user.copyWith(
+          fcmToken: token,
+          lastActive: DateTime.now(),
+        ),
       );
-
-      await _finalize(updated);
     } catch (_) {
-      // Best effort only.
+      // Ignore token sync failures.
     }
   }
 
-  //===========================================================================
+  // ===========================================================================
   // Private helpers
-  //===========================================================================
+  // ===========================================================================
 
   Future<UserModel> _postSignIn(
     fb.User firebaseUser, {
@@ -294,39 +302,60 @@ class AuthRepositoryImpl implements AuthRepository {
       );
 
       if (remote != null) {
-        return remote.copyWith(
+        final updated = remote.copyWith(
           lastActive: DateTime.now(),
         );
+
+        try {
+          await _firestore.updateUser(
+            updated.uid,
+            {
+              'lastActive': updated.lastActive,
+            },
+          );
+        } catch (_) {}
+
+        return updated;
       }
     } catch (_) {
-      // Continue with local cache.
+      // Continue with cache.
     }
 
     final cached = _hive.getUser();
 
-    if (cached != null && cached.id == firebaseUser.uid) {
+    if (cached != null &&
+        cached.uid == firebaseUser.uid) {
       return cached.copyWith(
         lastActive: DateTime.now(),
       );
     }
 
+    final now = DateTime.now();
+
     final model = UserModel(
-      id: firebaseUser.uid,
+      uid: firebaseUser.uid,
       email: firebaseUser.email ?? '',
       displayName:
           fallbackName ??
           firebaseUser.displayName ??
           '',
       photoUrl: firebaseUser.photoURL,
+      xp: 0,
+      level: 1,
+      interests: const [],
+      badges: const [],
+      totalDiscoveries: 0,
+      totalWalkingDistance: 0,
       isGuest: firebaseUser.isAnonymous,
-      createdAt: DateTime.now(),
-      lastActive: DateTime.now(),
+      fcmToken: null,
+      createdAt: now,
+      lastActive: now,
     );
 
     try {
       await _firestore.createUser(model);
     } catch (_) {
-      // Offline mode.
+      // Ignore when offline.
     }
 
     return model;
