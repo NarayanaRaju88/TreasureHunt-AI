@@ -160,9 +160,12 @@ final xpToNextLevelProvider = Provider<int>((ref) {
   return remaining < 0 ? 0 : remaining;
 });
 
-/// Current daily streak for the signed-in user.
+/// Current daily streak.
+///
+/// Streak support is temporarily disabled until the new
+/// UserModel includes streak fields again.
 final streakProvider = Provider<int>((ref) {
-  return ref.watch(currentUserProvider).user?.dailyStreak ?? 0;
+  return 0;
 });
 
 /// The signed-in user's achievements (fetched from the repository).
