@@ -90,9 +90,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: IconButton(
-                    onPressed: () => context.canPop
-                        ? context.pop()
-                        : context.goNamed(AppRoutes.login),
+                    onPressed: () {
+                     if (Navigator.of(context).canPop()) {
+                    Navigator.of(context).pop();
+                     } else {
+                      context.goNamed(AppRoutes.login);
+                     }
+                     },
                     icon: const Icon(Icons.arrow_back_rounded,
                         color: Colors.white),
                   ),
