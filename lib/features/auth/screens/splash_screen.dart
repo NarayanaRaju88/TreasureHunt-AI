@@ -8,7 +8,7 @@ import 'package:lottie/lottie.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/routes/app_router.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../main.dart';
+import '../../../core/providers/service_providers.dart';
 import '../providers/auth_provider.dart';
 
 /// Animated splash screen shown on cold start.
