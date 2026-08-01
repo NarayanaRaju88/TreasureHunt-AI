@@ -71,15 +71,18 @@ class LocationService {
   }
 
   /// A continuous stream of position updates for live tracking.
+
   Stream<Position> getLocationStream({
   LocationAccuracy accuracy = LocationAccuracy.high,
   int distanceFilterMeters = AppConstants.locationDistanceFilterMeters,
-}) {
+  }) {
   return Geolocator.getPositionStream(
-    desiredAccuracy: accuracy,
-    distanceFilter: distanceFilterMeters,
-  );
-}
+    locationSettings: LocationSettings(
+      accuracy: accuracy,
+      distanceFilter: distanceFilterMeters,
+     ),
+   );
+  }
 
   /// Distance in meters between two coordinates (Haversine).
   double calculateDistance({
