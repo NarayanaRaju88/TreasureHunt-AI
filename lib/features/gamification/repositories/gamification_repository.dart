@@ -4,7 +4,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/services/firestore_service.dart';
 import '../../../core/services/hive_service.dart';
 import '../../../core/utils/app_utils.dart';
-import '../../auth/models/user_model.dart';
+import '../../../domain/models/user_model.dart';
 import '../models/achievement_model.dart';
 import '../models/badge_model.dart';
 
@@ -116,53 +116,10 @@ class GamificationRepositoryImpl implements GamificationRepository {
 
   @override
   Future<UserModel> updateStreak(UserModel user) async {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final last = user.lastActiveDate;
-
-    int newStreak;
-    if (last == null) {
-      newStreak = 1;
-    } else {
-      final lastDay = DateTime(last.year, last.month, last.day);
-      final diff = today.difference(lastDay).inDays;
-      if (diff == 0) {
-        // Already counted today — no change.
-        return user;
-      } else if (diff == 1) {
-        newStreak = user.dailyStreak + 1;
-      } else {
-        // Missed one or more days — reset.
-        newStreak = 1;
-      }
-    }
-
-    var updated = user.copyWith(
-      dailyStreak: newStreak,
-      lastActiveDate: today,
-    );
-
-    // Award a bonus at streak milestones (multiples of the threshold).
-    int bonusXp = AppConstants.xpDailyLogin;
-    if (newStreak > 0 &&
-        newStreak % AppConstants.streakBonusThresholdDays == 0) {
-      bonusXp += AppConstants.streakBonusXp;
-    }
-    final newXp = updated.xp + bonusXp;
-    updated = updated.copyWith(
-      xp: newXp,
-      level: AppUtils.calculateLevel(newXp),
-    );
-
-    await _persistUser(updated, <String, dynamic>{
-      'dailyStreak': updated.dailyStreak,
-      'lastActiveDate': updated.lastActiveDate?.toIso8601String(),
-      'xp': updated.xp,
-      'level': updated.level,
-    });
-    return updated;
+    // Temporarily disabled until streak fields are added to UserModel.
+    return user;
   }
-
+  
   @override
   MysteryBoxReward getMysteryBoxReward({int level = 1}) {
     // Weighted rarity roll — higher levels slightly improve odds.
@@ -206,7 +163,7 @@ class GamificationRepositoryImpl implements GamificationRepository {
     await _hive.saveUser(user);
     if (user.isGuest) return;
     try {
-      await _firestore.updateUser(user.id, delta);
+      await _firestore.updateUser(user.uid, delta);
     } catch (_) {
       // Non-fatal; local cache is authoritative until next sync.
     }
