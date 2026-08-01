@@ -15,7 +15,7 @@ import '../../../core/widgets/loading_shimmer.dart';
 import '../../../core/widgets/treasure_card.dart';
 import '../../../core/widgets/xp_progress_bar.dart';
 import '../../../core/widgets/animated_streak_badge.dart';
-import '../../auth/models/user_model.dart';
+import '../../../domain/models/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../gamification/providers/gamification_provider.dart';
 import '../../treasure/models/treasure_model.dart';
