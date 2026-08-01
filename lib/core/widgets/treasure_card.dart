@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../features/treasure/models/treasure_model.dart';
+import '../../features/treasure/models/treasure_category.dart';
 import '../extensions/context_extensions.dart';
 import '../theme/app_colors.dart';
 import '../utils/app_utils.dart';
