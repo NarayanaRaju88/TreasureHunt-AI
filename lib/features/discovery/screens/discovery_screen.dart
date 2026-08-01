@@ -16,6 +16,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../core/widgets/difficulty_badge.dart';
 import '../../treasure/models/treasure_model.dart';
+import '../../treasure/models/treasure_category.dart';
 import '../../treasure/providers/treasure_provider.dart';
 import '../../gamification/providers/gamification_provider.dart';
 
