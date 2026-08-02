@@ -252,7 +252,7 @@ class AuthRepositoryImpl implements AuthRepository {
     }
 
     try {
-      final token = await _fcm!.getToken();
+      final token = await _fcm.getToken();
 
       if (token == null ||
           token.isEmpty ||
