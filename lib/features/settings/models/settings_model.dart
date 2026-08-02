@@ -1,5 +1,4 @@
 import 'package:equatable/equatable.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 
 /// App-level permission state for location, mirrored from the OS.
