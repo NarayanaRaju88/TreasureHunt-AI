@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "532906033913",
+    "project_id": "treasurehunt-ai",
+    "storage_bucket": "treasurehunt-ai.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:532906033913:android:317607f8e8505810085828",
+        "android_client_info": {
+          "package_name": "app.aitreasurehunt"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLRBibr9Ntp306bAxM90vntNbrfqEuHzk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:532906033913:android:b2551317fcb66d3f085828",
+        "android_client_info": {
+          "package_name": "com.example.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLRBibr9Ntp306bAxM90vntNbrfqEuHzk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
