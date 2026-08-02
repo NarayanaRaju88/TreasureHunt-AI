@@ -153,7 +153,7 @@ class _ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final memberSince = user?.createdAt != null
-        ? 'Member since ${AppUtils.formatDate(user!.createdAt!)}'
+        ? 'Member since ${AppUtils.formatDate(user!.createdAt)}'
         : 'Welcome, explorer!';
     return Container(
       decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
