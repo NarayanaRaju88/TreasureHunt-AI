@@ -26,6 +26,9 @@ android {
         versionName = flutter.versionName
 
         multiDexEnabled = true
+
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] =
+        System.getenv("GOOGLE_MAPS_API_KEY") ?: ""
     }
 
     buildTypes {
