@@ -61,7 +61,7 @@ class GeminiService {
 
   /// Lazily constructs a JSON-mode model, reused across calls.
   GenerativeModel get _model {
-    if (_injectedModel != null) return _injectedModel!;
+    if (_injectedModel != null) return _injectedModel;
     if (!isConfigured) {
       throw const AIServiceException(
         'AI features are not configured. Missing Gemini API key.',
