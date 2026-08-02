@@ -13,6 +13,7 @@ import '../../../core/utils/app_utils.dart';
 import '../../../core/widgets/difficulty_badge.dart';
 import '../../../core/widgets/loading_shimmer.dart';
 import '../../treasure/models/treasure_model.dart';
+import '../../treasure/models/treasure_category.dart';
 import '../../treasure/providers/treasure_provider.dart';
 
 /// Full-screen Google Maps experience that guides the explorer to their daily
