@@ -230,7 +230,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   subtitle:
                       const Text('Daily treasures, streaks and reminders'),
                   value: settings.notificationsEnabled,
-                  activeColor: AppColors.primary,
+                  activeTrackColor: AppColors.primary,
                   onChanged: (v) => ref
                       .read(settingsProvider.notifier)
                       .setNotificationsEnabled(v),
@@ -259,7 +259,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   subtitle:
                       const Text('A nudge if you haven\'t explored today'),
                   value: settings.notificationsEnabled && _eveningReminder,
-                  activeColor: AppColors.primary,
+                  activeTrackColor: AppColors.primary,
                   onChanged: settings.notificationsEnabled
                       ? (v) => setState(() => _eveningReminder = v)
                       : null,
