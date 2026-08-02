@@ -18,6 +18,7 @@ import '../../../domain/models/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../gamification/models/achievement_model.dart';
 import '../../gamification/providers/gamification_provider.dart';
+import '../../treasure/models/treasure_category.dart';
 import '../../treasure/models/treasure_history_model.dart';
 import '../../treasure/providers/treasure_provider.dart';
 
