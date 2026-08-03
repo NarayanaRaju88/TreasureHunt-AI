@@ -57,27 +57,49 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   void _decideNavigation() {
-    if (_navigated || !mounted) return;
+  if (_navigated || !mounted) return;
+
+  final prefs = ref.read(sharedPreferencesProvider);
+  final bool onboarded =
+      prefs.getBool(AppConstants.keyOnboardingComplete) ?? false;
+
+  if (!onboarded) {
     _navigated = true;
 
-    final prefs = ref.read(sharedPreferencesProvider);
-    final bool onboarded =
-        prefs.getBool(AppConstants.keyOnboardingComplete) ?? false;
-
-    if (!onboarded) {
+    try {
       context.goNamed(AppRoutes.onboarding);
-      return;
+    } catch (e, st) {
+      debugPrint('Navigation Error (Onboarding): $e');
+      debugPrintStack(stackTrace: st);
     }
-
-    final authState = ref.read(authStateProvider);
-    final bool signedIn = authState.maybeWhen(
-      data: (user) => user != null,
-      orElse: () => ref.read(currentUserProvider).isAuthenticated,
-    );
-
-    context.goNamed(signedIn ? AppRoutes.home : AppRoutes.login);
+    return;
   }
 
+  final authState = ref.read(authStateProvider);
+
+  // Wait until Firebase authentication is fully initialized.
+  if (authState.isLoading) {
+    _navTimer?.cancel();
+    _navTimer = Timer(
+      const Duration(milliseconds: 500),
+      _decideNavigation,
+    );
+    return;
+  }
+
+  final bool signedIn = authState.valueOrNull != null;
+
+  _navigated = true;
+
+  try {
+    context.goNamed(
+      signedIn ? AppRoutes.home : AppRoutes.login,
+    );
+  } catch (e, st) {
+    debugPrint('Navigation Error: $e');
+    debugPrintStack(stackTrace: st);
+  }
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
