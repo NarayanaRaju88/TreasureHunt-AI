@@ -37,9 +37,10 @@ final firestoreServiceProvider =
 });
 
 /// Hive
-final hiveServiceProvider =
-    Provider<HiveService>((ref) {
-  return HiveService();
+final hiveServiceProvider = Provider<HiveService>((ref) {
+  throw UnimplementedError(
+    'HiveService must be overridden in main.dart',
+  );
 });
 
 /// Gemini
