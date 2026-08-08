@@ -42,7 +42,8 @@ class WeatherModel extends Equatable {
   final String? cityName;
 
   /// Full icon URL served by OpenWeatherMap.
-  String get iconUrl => 'https://play-lh.googleusercontent.com/ooGrukpBdHiCt231zCvHQ2uOtnKvhsGqxsz-qiYpY36uDP0ib2Y1EAzdRRYJoHkceBiWdx4PVIF0kJZ6SZaPMQ';
+  String get iconUrl =>
+    'https://openweathermap.org/img/wn/$icon@2x.png';
 
   factory WeatherModel.fromOpenWeather(Map<String, dynamic> json) {
     final weatherList = json['weather'] as List?;
