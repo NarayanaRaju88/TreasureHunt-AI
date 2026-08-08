@@ -22,11 +22,8 @@ import '../../features/settings/screens/settings_screen.dart';
 /// ---------------------------------------------------------------------------
 /// Application Routes
 /// ---------------------------------------------------------------------------
-///
+
 /// Centralized route names and paths.
-///
-/// Named routes should be used throughout the application instead of hardcoded
-/// strings. This makes navigation safer and easier to refactor.
 class AppRoutes {
   AppRoutes._();
 
@@ -68,11 +65,8 @@ class AppRoutes {
 /// ---------------------------------------------------------------------------
 /// Router Refresh Notifier
 /// ---------------------------------------------------------------------------
-///
-/// GoRouter needs a Listenable to know when it should re-run redirect logic.
-///
-/// Riverpod auth state changes asynchronously, so this notifier acts as a
-/// bridge between Riverpod and GoRouter.
+
+/// Bridges Riverpod authentication changes to GoRouter.
 class RouterRefreshNotifier extends ChangeNotifier {
   RouterRefreshNotifier();
 
@@ -103,26 +97,11 @@ final GlobalKey<NavigatorState> _shellNavigatorKey =
 /// ---------------------------------------------------------------------------
 /// GoRouter Provider
 /// ---------------------------------------------------------------------------
-///
-/// Creates the application's central GoRouter.
-///
-/// The router handles:
-///
-/// 1. Splash screen
-/// 2. Onboarding
-/// 3. Authentication
-/// 4. Protected application routes
-/// 5. Persistent bottom navigation shell
-/// 6. Global navigation errors
-///
-/// Authentication state comes from [authStateProvider].
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final refreshNotifier = ref.watch(routerRefreshProvider);
 
-  /// Listen to authentication state changes.
-  ///
-  /// Whenever Firebase reports a login/logout event, the router is refreshed
-  /// and redirect logic runs again.
+  // Refresh routing whenever Firebase authentication changes.
   ref.listen<AsyncValue<dynamic>>(
     authStateProvider,
     (previous, next) {
@@ -133,15 +112,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
 
-    /// Always start at splash.
+    /// Always begin with the splash screen.
     initialLocation: AppRoutes.splashPath,
 
     debugLogDiagnostics: true,
 
-    /// Re-run redirects whenever auth state changes.
     refreshListenable: refreshNotifier,
 
-    /// Global route error.
+    /// -----------------------------------------------------------------------
+    /// Global route error
+    /// -----------------------------------------------------------------------
     errorBuilder: (context, state) {
       return _RouteErrorScreen(
         error: state.error,
@@ -151,118 +131,65 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     /// -----------------------------------------------------------------------
     /// Redirect Logic
     /// -----------------------------------------------------------------------
-    ///
-    /// Authentication flow:
-    ///
-    /// App start
-    ///     ↓
-    /// Splash
-    ///     ↓
-    /// Check onboarding
-    ///     ↓
-    /// ┌──────────────────────────┐
-    /// │ Onboarding completed?    │
-    /// └────────────┬─────────────┘
-    ///              │
-    ///       No     │     Yes
-    ///       ↓      │      ↓
-    /// Onboarding   │    Auth check
-    ///       ↓      │      ↓
-    ///     Login    │  Signed in?
-    ///              │   /     \
-    ///             Yes       No
-    ///              ↓         ↓
-    ///             Home      Login
-    ///
-    /// Note:
-    /// The splash screen is allowed to render while auth state is loading.
     redirect: (context, state) {
       final location = state.matchedLocation;
 
-      final authState = ref.read(authStateProvider);
-
-      /// ---------------------------------------------------------------------
-      /// 1. Always allow splash while the app is starting.
-      /// ---------------------------------------------------------------------
-      ///
-      /// The splash screen is responsible for the initial startup experience.
+      // -----------------------------------------------------------------------
+      // 1. Splash is controlled by SplashScreen.
+      // -----------------------------------------------------------------------
+      //
+      // IMPORTANT:
+      // Do not redirect based on Firebase's temporary "loading" state here.
+      // SplashScreen handles the initial startup decision.
+      //
       if (location == AppRoutes.splashPath) {
         return null;
       }
 
-      /// ---------------------------------------------------------------------
-      /// 2. Determine authentication status.
-      /// ---------------------------------------------------------------------
-      ///
-      /// While auth state is loading, do not redirect prematurely.
-      ///
-      /// This prevents:
-      ///
-      /// Firebase starts
-      ///      ↓
-      /// authState = loading
-      ///      ↓
-      /// router thinks user is signed out
-      ///      ↓
-      /// incorrectly redirects to login
-      ///
-      /// Instead, splash should be used to wait for initialization.
-      final bool authLoading = authState.isLoading;
+      // -----------------------------------------------------------------------
+      // 2. Read the latest authentication state.
+      // -----------------------------------------------------------------------
+      //
+      // currentUserProvider is maintained by AuthNotifier and is immediately
+      // updated by login/logout actions as well as the Firebase auth stream.
+      //
+      final authState = ref.read(currentUserProvider);
+      final bool isSignedIn = authState.isAuthenticated;
 
-      if (authLoading) {
-        return AppRoutes.splashPath;
-      }
+      // -----------------------------------------------------------------------
+      // 3. Read onboarding status.
+      // -----------------------------------------------------------------------
 
-      final user = authState.valueOrNull;
-      final bool isSignedIn = user != null;
-
-      /// ---------------------------------------------------------------------
-      /// 3. Read onboarding status.
-      /// ---------------------------------------------------------------------
-      ///
-      /// SharedPreferences is synchronous after initialization.
       final prefs = ref.read(sharedPreferencesProvider);
 
       final bool onboardingComplete =
           prefs.getBool(AppConstants.keyOnboardingComplete) ?? false;
 
-      /// ---------------------------------------------------------------------
-      /// 4. Onboarding has NOT been completed.
-      /// ---------------------------------------------------------------------
+      // -----------------------------------------------------------------------
+      // 4. Onboarding has not been completed.
+      // -----------------------------------------------------------------------
+
       if (!onboardingComplete) {
-        /// If the user is already on onboarding, stay there.
         if (location == AppRoutes.onboardingPath) {
           return null;
         }
 
-        /// Allow splash to remain visible.
-        if (location == AppRoutes.splashPath) {
-          return null;
-        }
-
-        /// Send first-time users to onboarding.
         return AppRoutes.onboardingPath;
       }
 
-      /// ---------------------------------------------------------------------
-      /// 5. Onboarding is complete.
-      /// ---------------------------------------------------------------------
-      ///
-      /// The user should never return to onboarding unless the app explicitly
-      /// resets the onboarding preference.
-      if (location == AppRoutes.onboardingPath) {
-        if (isSignedIn) {
-          return AppRoutes.homePath;
-        }
+      // -----------------------------------------------------------------------
+      // 5. Onboarding is complete.
+      // -----------------------------------------------------------------------
 
-        return AppRoutes.loginPath;
+      if (location == AppRoutes.onboardingPath) {
+        return isSignedIn ? AppRoutes.homePath : AppRoutes.loginPath;
       }
 
-      /// ---------------------------------------------------------------------
-      /// 6. User is NOT authenticated.
-      /// ---------------------------------------------------------------------
+      // -----------------------------------------------------------------------
+      // 6. User is NOT authenticated.
+      // -----------------------------------------------------------------------
+
       if (!isSignedIn) {
-        /// Public authentication routes.
         final bool isPublicAuthRoute =
             location == AppRoutes.loginPath ||
             location == AppRoutes.registerPath ||
@@ -272,15 +199,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return null;
         }
 
-        /// Prevent unauthenticated access to application routes.
         return AppRoutes.loginPath;
       }
 
-      /// ---------------------------------------------------------------------
-      /// 7. User IS authenticated.
-      /// ---------------------------------------------------------------------
-      ///
-      /// Authenticated users should not return to login/register pages.
+      // -----------------------------------------------------------------------
+      // 7. User IS authenticated.
+      // -----------------------------------------------------------------------
+
       final bool isAuthRoute =
           location == AppRoutes.loginPath ||
           location == AppRoutes.registerPath ||
@@ -290,9 +215,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return AppRoutes.homePath;
       }
 
-      /// Everything else is allowed.
+      // -----------------------------------------------------------------------
+      // 8. Everything else is allowed.
+      // -----------------------------------------------------------------------
+
       return null;
     },
+
+    /// -----------------------------------------------------------------------
+    /// Routes
+    /// -----------------------------------------------------------------------
 
     routes: <RouteBase>[
       // =====================================================================
@@ -365,10 +297,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // =====================================================================
       // Discovery
       // =====================================================================
-      ///
-      /// Discovery is intentionally outside the shell so it opens as a
-      /// full-screen route.
-      ///
+
+      /// Discovery opens outside the bottom-navigation shell.
       GoRoute(
         name: AppRoutes.discovery,
         path: AppRoutes.discoveryPath,
@@ -387,13 +317,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
-
         builder: (context, state, child) {
           return MainShell(
             child: child,
           );
         },
-
         routes: <RouteBase>[
           // -----------------------------------------------------------------
           // Home
@@ -448,11 +376,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
 });
 
-// =============================================================================
-// Page Transitions
-// =============================================================================
+/// =============================================================================
+/// Page Transitions
+/// =============================================================================
 
-/// Fade transition used for splash and onboarding.
 CustomTransitionPage<void> _fade(
   GoRouterState state,
   Widget child,
@@ -472,7 +399,6 @@ CustomTransitionPage<void> _fade(
   );
 }
 
-/// Slide transition used for auth and full-screen feature routes.
 CustomTransitionPage<void> _slide(
   GoRouterState state,
   Widget child,
@@ -501,9 +427,9 @@ CustomTransitionPage<void> _slide(
   );
 }
 
-// =============================================================================
-// Route Error Screen
-// =============================================================================
+/// =============================================================================
+/// Route Error Screen
+/// =============================================================================
 
 class _RouteErrorScreen extends StatelessWidget {
   const _RouteErrorScreen({
@@ -531,18 +457,14 @@ class _RouteErrorScreen extends StatelessWidget {
                 size: 72,
                 color: AppColors.error,
               ),
-
               const SizedBox(height: 16),
-
               Text(
                 'Page not found',
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
-
               const SizedBox(height: 8),
-
               Text(
                 error?.toString() ??
                     'The requested page does not exist.',
@@ -551,9 +473,7 @@ class _RouteErrorScreen extends StatelessWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-
               const SizedBox(height: 24),
-
               FilledButton.icon(
                 onPressed: () {
                   context.goNamed(AppRoutes.home);
