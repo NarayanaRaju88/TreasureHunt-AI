@@ -46,7 +46,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     _logoController.forward();
 
     // Auto-navigate after ~3 seconds.
-    _navTimer = Timer(const Duration(seconds: 3), _decideNavigation);
+    _navTimer = Timer(
+     AppConstants.splashDuration,
+    _decideNavigation,
+    );
   }
 
   @override
