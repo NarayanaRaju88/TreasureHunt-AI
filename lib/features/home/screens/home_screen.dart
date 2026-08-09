@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/l10n/app_strings.dart';
@@ -234,8 +235,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       extendBody: true,
-      floatingActionButton: _ExploreFab(
-        onPressed: () => _openTreasure(daily.asData?.value),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Padding(
+        // Keep Explore FAB above the floating bottom navigation bar.
+        padding: const EdgeInsets.only(bottom: 84),
+        child: _ExploreFab(
+          onPressed: () => _openTreasure(daily.asData?.value),
+        ),
       ),
       body: SafeArea(
         bottom: false,
@@ -295,7 +301,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   onTap: _openTreasure,
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              const SliverToBoxAdapter(child: SizedBox(height: 28)),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -316,7 +322,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               SliverToBoxAdapter(
                 child: SizedBox(
-                  height: 150 + MediaQuery.paddingOf(context).bottom,
+                  height: 180 + MediaQuery.paddingOf(context).bottom,
                 ),
               ),
             ],
@@ -703,6 +709,15 @@ class _NearbyOffers extends StatelessWidget {
   final VoidCallback onRetry;
   final ValueChanged<TreasureModel> onTap;
 
+  Future<void> _openDirections(TreasureModel treasure) async {
+    final uri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1'
+      '&destination=${treasure.lat},${treasure.lng}'
+      '&travelmode=walking',
+    );
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (locating || loading) {
@@ -724,27 +739,68 @@ class _NearbyOffers extends StatelessWidget {
       );
     }
 
-    return SizedBox(
-      height: 280,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-        itemCount: offers.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          final treasure = offers[index];
-          return SizedBox(
-            width: 280,
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: TreasureCard(
-                treasure: treasure,
-                onTap: () => onTap(treasure),
+    // Vertical list — never clips chips the way a fixed-height horizontal
+    // carousel did under Weather.
+    final visible = offers.take(4).toList();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: <Widget>[
+          for (var i = 0; i < visible.length; i++) ...<Widget>[
+            if (i > 0) const SizedBox(height: 14),
+            _NearbyOfferTile(
+              treasure: visible[i],
+              onOpen: () => onTap(visible[i]),
+              onDirections: () => _openDirections(visible[i]),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _NearbyOfferTile extends StatelessWidget {
+  const _NearbyOfferTile({
+    required this.treasure,
+    required this.onOpen,
+    required this.onDirections,
+  });
+
+  final TreasureModel treasure;
+  final VoidCallback onOpen;
+  final VoidCallback onDirections;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        TreasureCard(
+          treasure: treasure,
+          onTap: onOpen,
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: onOpen,
+                icon: const Icon(Icons.info_outline_rounded, size: 18),
+                label: const Text('View details'),
               ),
             ),
-          );
-        },
-      ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: onDirections,
+                icon: const Icon(Icons.directions_rounded, size: 18),
+                label: const Text('Get Directions'),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -924,53 +980,6 @@ class _QuickStats extends StatelessWidget {
   final UserModel? user;
   final AppStrings strings;
 
-  void _showSheet(
-    BuildContext context, {
-    required String title,
-    required String body,
-    VoidCallback? action,
-    String? actionLabel,
-  }) {
-    showModalBottomSheet<void>(
-      context: context,
-      useRootNavigator: true,
-      showDragHandle: true,
-      builder: (context) {
-        final bottomInset = MediaQuery.paddingOf(context).bottom;
-        return Padding(
-          padding: EdgeInsets.fromLTRB(24, 8, 24, 24 + bottomInset),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              Text(body),
-              if (action != null && actionLabel != null) ...<Widget>[
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      action();
-                    },
-                    child: Text(actionLabel),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final km = ((user?.totalWalkingDistance ?? 0) / 1000);
@@ -984,15 +993,12 @@ class _QuickStats extends StatelessWidget {
               value: '${user?.totalDiscoveries ?? 0}',
               label: strings.t('discoveries'),
               color: AppColors.primary,
-              onTap: () => _showSheet(
-                context,
-                title: strings.t('discoveries'),
-                body:
-                    'You have found ${user?.totalDiscoveries ?? 0} treasure(s). '
-                    'Open Profile to see recent finds, or keep collecting nearby offers.',
-                actionLabel: 'Open Profile',
-                action: () => context.goNamed(AppRoutes.profile),
-              ),
+              onTap: () {
+                context.showSnackBar(
+                  'Discoveries: ${user?.totalDiscoveries ?? 0}',
+                );
+                context.goNamed(AppRoutes.profile);
+              },
             ),
           ),
           const SizedBox(width: 12),
@@ -1002,15 +1008,12 @@ class _QuickStats extends StatelessWidget {
               value: '${user?.badges.length ?? 0}',
               label: strings.t('badges'),
               color: AppColors.accentDark,
-              onTap: () => _showSheet(
-                context,
-                title: strings.t('badges'),
-                body:
-                    'You currently have ${user?.badges.length ?? 0} badge(s). '
-                    'Earn more by collecting treasures and leveling up.',
-                actionLabel: 'Open Profile',
-                action: () => context.goNamed(AppRoutes.profile),
-              ),
+              onTap: () {
+                context.showSnackBar(
+                  'Badges: ${user?.badges.length ?? 0}',
+                );
+                context.goNamed(AppRoutes.profile);
+              },
             ),
           ),
           const SizedBox(width: 12),
@@ -1022,15 +1025,12 @@ class _QuickStats extends StatelessWidget {
                   : km.toStringAsFixed(1),
               label: strings.t('walking_km'),
               color: AppColors.secondary,
-              onTap: () => _showSheet(
-                context,
-                title: strings.t('walking_km'),
-                body:
-                    'You have walked ${km.toStringAsFixed(2)} km while hunting. '
-                    'Open the Map to navigate to your next pin.',
-                actionLabel: 'Open Map',
-                action: () => context.goNamed(AppRoutes.map),
-              ),
+              onTap: () {
+                context.showSnackBar(
+                  'Walking: ${km.toStringAsFixed(2)} km — opening Map',
+                );
+                context.goNamed(AppRoutes.map);
+              },
             ),
           ),
         ],
@@ -1045,51 +1045,53 @@ class _StatTile extends StatelessWidget {
     required this.value,
     required this.label,
     required this.color,
-    this.onTap,
+    required this.onTap,
   });
 
   final IconData icon;
   final String value;
   final String label;
   final Color color;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: color.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        child: Ink(
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: color.withValues(alpha: 0.25)),
           ),
-          child: Column(
-            children: <Widget>[
-              Icon(icon, color: color, size: 26),
-              const SizedBox(height: 8),
-              Text(
-                value,
-                style: context.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: color,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+            child: Column(
+              children: <Widget>[
+                Icon(icon, color: color, size: 26),
+                const SizedBox(height: 8),
+                Text(
+                  value,
+                  style: context.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: context.textTheme.bodySmall?.copyWith(
-                  color: context.colors.onSurface.withValues(alpha: 0.7),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.textTheme.bodySmall?.copyWith(
+                    color: context.colors.onSurface.withValues(alpha: 0.7),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

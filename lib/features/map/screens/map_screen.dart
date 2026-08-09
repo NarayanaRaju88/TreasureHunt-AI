@@ -359,7 +359,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
           if (treasure != null && !_loadingLocation && _locationError == null)
             Positioned(
               right: 16,
-              bottom: 260,
+              bottom: 320 + MediaQuery.paddingOf(context).bottom,
               child: Column(
                 children: <Widget>[
                   FloatingActionButton.small(
@@ -585,8 +585,10 @@ class _TreasureInfoSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomClearance =
+        96 + MediaQuery.paddingOf(context).bottom; // floating bottom nav
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+      margin: EdgeInsets.fromLTRB(12, 0, 12, bottomClearance),
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
       decoration: BoxDecoration(
         color: context.colors.surface,
@@ -635,7 +637,7 @@ class _TreasureInfoSheet extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       treasure.title,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: context.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
@@ -681,9 +683,9 @@ class _TreasureInfoSheet extends StatelessWidget {
             height: 52,
             child: FilledButton.icon(
               onPressed: onNavigate,
-              icon: const Icon(Icons.navigation_rounded),
+              icon: const Icon(Icons.directions_rounded),
               label: const Text(
-                'Start Navigation',
+                'Get Directions',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
               ),
               style: FilledButton.styleFrom(

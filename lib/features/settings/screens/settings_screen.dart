@@ -247,7 +247,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
-        padding: EdgeInsets.fromLTRB(16, 12, 16, 120 + context.padding.bottom),
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 160 + context.padding.bottom),
         children: <Widget>[
           // ---- Appearance -------------------------------------------------
           const _SectionHeader(

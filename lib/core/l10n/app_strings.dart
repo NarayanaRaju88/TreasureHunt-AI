@@ -31,7 +31,7 @@ class AppStrings {
       'reach_pin_title': 'Walk to the pin',
       'route_map': 'Route to treasure',
       'open_full_map': 'Open full map',
-      'start_navigation': 'Start Navigation',
+      'start_navigation': 'Get Directions',
       'collect': 'Collect Treasure',
       'too_far': 'Get closer to the treasure pin before collecting.',
       'refresh': 'Refresh',
