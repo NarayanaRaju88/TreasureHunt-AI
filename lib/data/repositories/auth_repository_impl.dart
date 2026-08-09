@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 
 import '../../core/errors/app_exceptions.dart';
@@ -34,7 +37,9 @@ class AuthRepositoryImpl implements AuthRepository {
     return _auth.authStateStream.asyncMap((fb.User? firebaseUser) async {
       if (firebaseUser == null) {
         _cachedUser = null;
-        await _hive.clearUser();
+        try {
+          await _hive.clearUser();
+        } catch (_) {}
         return null;
       }
 
@@ -42,7 +47,9 @@ class AuthRepositoryImpl implements AuthRepository {
 
       _cachedUser = user;
 
-      await _hive.saveUser(user);
+      try {
+        await _hive.saveUser(user);
+      } catch (_) {}
 
       return user;
     });
@@ -233,7 +240,7 @@ class AuthRepositoryImpl implements AuthRepository {
         {
           if (displayName != null) 'displayName': displayName,
           if (photoUrl != null) 'photoUrl': photoUrl,
-          'lastActive': DateTime.now(),
+          'lastActiveDate': Timestamp.fromDate(DateTime.now()),
         },
       );
     } catch (_) {
@@ -297,9 +304,9 @@ class AuthRepositoryImpl implements AuthRepository {
     String? fallbackName,
   }) async {
     try {
-      final remote = await _firestore.getUser(
-        firebaseUser.uid,
-      );
+      final remote = await _firestore
+          .getUser(firebaseUser.uid)
+          .timeout(const Duration(seconds: 12));
 
       if (remote != null) {
         final updated = remote.copyWith(
@@ -310,7 +317,7 @@ class AuthRepositoryImpl implements AuthRepository {
           await _firestore.updateUser(
             updated.uid,
             {
-              'lastActive': updated.lastActive,
+              'lastActiveDate': Timestamp.fromDate(updated.lastActive),
             },
           );
         } catch (_) {}
@@ -318,7 +325,7 @@ class AuthRepositoryImpl implements AuthRepository {
         return updated;
       }
     } catch (_) {
-      // Continue with cache.
+      // Continue with cache / local profile.
     }
 
     final cached = _hive.getUser();
@@ -353,9 +360,11 @@ class AuthRepositoryImpl implements AuthRepository {
     );
 
     try {
-      await _firestore.createUser(model);
+      await _firestore
+          .createUser(model)
+          .timeout(const Duration(seconds: 12));
     } catch (_) {
-      // Ignore when offline.
+      // Ignore when offline or rules reject — local auth still works.
     }
 
     return model;
@@ -366,7 +375,11 @@ class AuthRepositoryImpl implements AuthRepository {
   ) async {
     _cachedUser = model;
 
-    await _hive.saveUser(model);
+    try {
+      await _hive.saveUser(model);
+    } catch (_) {
+      // Auth must still succeed if local cache write fails.
+    }
 
     return model;
   }

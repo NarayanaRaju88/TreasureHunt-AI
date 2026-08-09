@@ -43,11 +43,13 @@ service cloud.firestore {
     }
 
     // Basic shape validation for user documents (defense in depth).
+    // Accept both legacy (`lastActive`, `uid`/`id`) and current field names.
     function isValidUser() {
       return request.resource.data.keys().hasOnly([
-        'email', 'displayName', 'photoUrl', 'level', 'xp', 'dailyStreak',
-        'lastActiveDate', 'badges', 'achievements', 'totalDiscoveries',
-        'totalWalkingDistance', 'createdAt', 'fcmToken', 'interests', 'isGuest'
+        'uid', 'id', 'email', 'displayName', 'photoUrl', 'level', 'xp',
+        'dailyStreak', 'lastActive', 'lastActiveDate', 'badges',
+        'achievements', 'totalDiscoveries', 'totalWalkingDistance',
+        'createdAt', 'fcmToken', 'interests', 'isGuest'
       ]);
     }
 
