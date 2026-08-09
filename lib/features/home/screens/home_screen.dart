@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/extensions/context_extensions.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/providers/service_providers.dart';
 import '../../../core/routes/app_router.dart';
 import '../../../core/services/weather_service.dart';
@@ -17,7 +18,9 @@ import '../../../core/widgets/xp_progress_bar.dart';
 import '../../../core/widgets/animated_streak_badge.dart';
 import '../../../domain/models/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../gamification/models/level_benefit.dart';
 import '../../gamification/providers/gamification_provider.dart';
+import '../../gamification/widgets/level_benefits_sheet.dart';
 import '../../treasure/models/treasure_model.dart';
 import '../../treasure/providers/treasure_provider.dart';
 
@@ -227,6 +230,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final nearbyLoading = ref.watch(
       treasureProvider.select((s) => s.isLoadingNearby),
     );
+    final strings = ref.watch(appStringsProvider);
 
     return Scaffold(
       extendBody: true,
@@ -244,14 +248,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             slivers: <Widget>[
               SliverToBoxAdapter(child: _TopBar(user: user)),
-              SliverToBoxAdapter(child: _GreetingSection(greeting: _greeting, user: user)),
+              SliverToBoxAdapter(
+                child: _GreetingSection(greeting: _greeting, user: user),
+              ),
               const SliverToBoxAdapter(child: SizedBox(height: 16)),
               SliverToBoxAdapter(child: _ProgressSection(user: user)),
               const SliverToBoxAdapter(child: SizedBox(height: 20)),
               SliverToBoxAdapter(
                 child: _SectionHeader(
-                  title: "Today's Treasure",
-                  actionLabel: 'Refresh',
+                  title: strings.t('todays_treasure'),
+                  actionLabel: strings.t('refresh'),
                   onAction: _refresh,
                 ),
               ),
@@ -275,8 +281,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 20)),
-              const SliverToBoxAdapter(
-                child: _SectionHeader(title: 'Nearby Offers'),
+              SliverToBoxAdapter(
+                child: _SectionHeader(title: strings.t('nearby_offers')),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 10)),
               SliverToBoxAdapter(
@@ -289,7 +295,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   onTap: _openTreasure,
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -301,13 +307,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 20)),
-              const SliverToBoxAdapter(
-                child: _SectionHeader(title: 'Your Progress'),
+              SliverToBoxAdapter(
+                child: _SectionHeader(title: strings.t('your_progress')),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 10)),
-              SliverToBoxAdapter(child: _QuickStats(user: user)),
               SliverToBoxAdapter(
-                child: SizedBox(height: 120 + MediaQuery.paddingOf(context).bottom),
+                child: _QuickStats(user: user, strings: strings),
+              ),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 150 + MediaQuery.paddingOf(context).bottom,
+                ),
               ),
             ],
           ),
@@ -489,6 +499,8 @@ class _ProgressSection extends ConsumerWidget {
     final toNext = ref.watch(xpToNextLevelProvider);
     final streak = ref.watch(streakProvider);
     final xp = ref.watch(xpProvider);
+    final strings = ref.watch(appStringsProvider);
+    final upcoming = nextBenefit(level);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -522,6 +534,50 @@ class _ProgressSection extends ConsumerWidget {
               nextLevel: level + 1,
               label: '${AppUtils.formatNumber(xp)} XP · $toNext XP to next level',
             ),
+            if (upcoming != null) ...<Widget>[
+              const SizedBox(height: 12),
+              InkWell(
+                onTap: () => showLevelBenefitsSheet(
+                  context,
+                  currentLevel: level,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentDark.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      const Icon(Icons.card_giftcard_rounded,
+                          size: 18, color: AppColors.accentDark),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Next: Lv ${upcoming.level} · ${upcoming.title}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: AppColors.accentDark,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        strings.t('view_level_benefits'),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -669,19 +725,22 @@ class _NearbyOffers extends StatelessWidget {
     }
 
     return SizedBox(
-      height: 210,
+      height: 280,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
         itemCount: offers.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           final treasure = offers[index];
           return SizedBox(
             width: 280,
-            child: TreasureCard(
-              treasure: treasure,
-              onTap: () => onTap(treasure),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: TreasureCard(
+                treasure: treasure,
+                onTap: () => onTap(treasure),
+              ),
             ),
           );
         },
@@ -860,9 +919,57 @@ class _WeatherWidget extends StatelessWidget {
 // Quick stats
 // =============================================================================
 class _QuickStats extends StatelessWidget {
-  const _QuickStats({required this.user});
+  const _QuickStats({required this.user, required this.strings});
 
   final UserModel? user;
+  final AppStrings strings;
+
+  void _showSheet(
+    BuildContext context, {
+    required String title,
+    required String body,
+    VoidCallback? action,
+    String? actionLabel,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      showDragHandle: true,
+      builder: (context) {
+        final bottomInset = MediaQuery.paddingOf(context).bottom;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(24, 8, 24, 24 + bottomInset),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              Text(body),
+              if (action != null && actionLabel != null) ...<Widget>[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      action();
+                    },
+                    child: Text(actionLabel),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -875,8 +982,17 @@ class _QuickStats extends StatelessWidget {
             child: _StatTile(
               icon: Icons.explore_rounded,
               value: '${user?.totalDiscoveries ?? 0}',
-              label: 'Discoveries',
+              label: strings.t('discoveries'),
               color: AppColors.primary,
+              onTap: () => _showSheet(
+                context,
+                title: strings.t('discoveries'),
+                body:
+                    'You have found ${user?.totalDiscoveries ?? 0} treasure(s). '
+                    'Open Profile to see recent finds, or keep collecting nearby offers.',
+                actionLabel: 'Open Profile',
+                action: () => context.goNamed(AppRoutes.profile),
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -884,8 +1000,17 @@ class _QuickStats extends StatelessWidget {
             child: _StatTile(
               icon: Icons.emoji_events_rounded,
               value: '${user?.badges.length ?? 0}',
-              label: 'Badges',
+              label: strings.t('badges'),
               color: AppColors.accentDark,
+              onTap: () => _showSheet(
+                context,
+                title: strings.t('badges'),
+                body:
+                    'You currently have ${user?.badges.length ?? 0} badge(s). '
+                    'Earn more by collecting treasures and leveling up.',
+                actionLabel: 'Open Profile',
+                action: () => context.goNamed(AppRoutes.profile),
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -895,8 +1020,17 @@ class _QuickStats extends StatelessWidget {
               value: km >= 10
                   ? km.round().toString()
                   : km.toStringAsFixed(1),
-              label: 'Walking KM',
+              label: strings.t('walking_km'),
               color: AppColors.secondary,
+              onTap: () => _showSheet(
+                context,
+                title: strings.t('walking_km'),
+                body:
+                    'You have walked ${km.toStringAsFixed(2)} km while hunting. '
+                    'Open the Map to navigate to your next pin.',
+                actionLabel: 'Open Map',
+                action: () => context.goNamed(AppRoutes.map),
+              ),
             ),
           ),
         ],
@@ -911,42 +1045,53 @@ class _StatTile extends StatelessWidget {
     required this.value,
     required this.label,
     required this.color,
+    this.onTap,
   });
 
   final IconData icon;
   final String value;
   final String label;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
-      ),
-      child: Column(
-        children: <Widget>[
-          Icon(icon, color: color, size: 26),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: context.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: color,
-            ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: color.withValues(alpha: 0.25)),
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: context.textTheme.bodySmall?.copyWith(
-              color: context.colors.onSurface.withValues(alpha: 0.7),
-            ),
+          child: Column(
+            children: <Widget>[
+              Icon(icon, color: color, size: 26),
+              const SizedBox(height: 8),
+              Text(
+                value,
+                style: context.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: context.textTheme.bodySmall?.copyWith(
+                  color: context.colors.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

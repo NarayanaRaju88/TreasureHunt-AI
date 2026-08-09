@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/extensions/context_extensions.dart';
+import '../../../core/l10n/app_languages.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/providers/service_providers.dart';
 import '../../../core/routes/app_router.dart';
 import '../../../core/theme/app_colors.dart';
@@ -17,7 +19,10 @@ import '../../../core/widgets/xp_progress_bar.dart';
 import '../../../domain/models/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../gamification/models/achievement_model.dart';
+import '../../gamification/models/level_benefit.dart';
 import '../../gamification/providers/gamification_provider.dart';
+import '../../gamification/widgets/level_benefits_sheet.dart';
+import '../../settings/providers/settings_provider.dart';
 import '../../treasure/models/treasure_category.dart';
 import '../../treasure/models/treasure_history_model.dart';
 import '../../treasure/providers/treasure_provider.dart';
@@ -114,6 +119,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
           ),
           SliverToBoxAdapter(child: _LevelCard(user: user)),
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          const SliverToBoxAdapter(child: _LanguageCard()),
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
           SliverToBoxAdapter(child: _StatsGrid(user: user)),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
@@ -276,6 +283,8 @@ class _LevelCard extends ConsumerWidget {
     final progress = ref.watch(levelProgressProvider);
     final toNext = ref.watch(xpToNextLevelProvider);
     final xp = ref.watch(xpProvider);
+    final strings = ref.watch(appStringsProvider);
+    final upcoming = nextBenefit(level);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -296,22 +305,25 @@ class _LevelCard extends ConsumerWidget {
                       color: AppColors.onAccent, size: 24),
                 ),
                 const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      'Level $level Explorer',
-                      style: context.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Level $level Explorer',
+                        style: context.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    Text(
-                      '${AppUtils.formatNumber(xp)} XP total',
-                      style: context.textTheme.bodySmall?.copyWith(
-                        color: context.colors.onSurface.withValues(alpha: 0.7),
+                      Text(
+                        '${AppUtils.formatNumber(xp)} XP total',
+                        style: context.textTheme.bodySmall?.copyWith(
+                          color:
+                              context.colors.onSurface.withValues(alpha: 0.7),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -322,9 +334,130 @@ class _LevelCard extends ConsumerWidget {
               nextLevel: level + 1,
               label: '$toNext XP to Level ${level + 1}',
             ),
+            if (upcoming != null) ...<Widget>[
+              const SizedBox(height: 12),
+              Text(
+                'Next unlock at Level ${upcoming.level}: ${upcoming.title}',
+                style: context.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.accentDark,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                upcoming.description,
+                style: context.textTheme.bodySmall?.copyWith(
+                  color: context.colors.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => showLevelBenefitsSheet(
+                  context,
+                  currentLevel: level,
+                ),
+                icon: const Icon(Icons.card_giftcard_rounded),
+                label: Text(strings.t('view_level_benefits')),
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _LanguageCard extends ConsumerWidget {
+  const _LanguageCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+    final strings = ref.watch(appStringsProvider);
+    final current =
+        appLanguageByCode(settings.language) ?? kSupportedAppLanguages.first;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: GlassmorphicContainer(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: ListTile(
+          leading: const Icon(Icons.language_rounded, color: AppColors.primary),
+          title: Text(strings.t('language')),
+          subtitle: Text(current.label),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => _showLanguagePicker(context, ref),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showLanguagePicker(BuildContext context, WidgetRef ref) async {
+    final selected = ref.read(settingsProvider).language;
+    final strings = ref.read(appStringsProvider);
+    await showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        final bottomInset = MediaQuery.paddingOf(context).bottom;
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: bottomInset),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.7,
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: kSupportedAppLanguages.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final lang = kSupportedAppLanguages[index];
+                  final isSelected = lang.code == selected;
+                  return ListTile(
+                    leading: CircleAvatar(
+                      radius: 16,
+                      backgroundColor: isSelected
+                          ? AppColors.primary
+                          : context.colors.surfaceContainerHighest,
+                      child: Text(
+                        lang.code.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: isSelected
+                              ? Colors.white
+                              : context.colors.onSurface,
+                        ),
+                      ),
+                    ),
+                    title: Text(lang.label),
+                    trailing: isSelected
+                        ? const Icon(Icons.check_rounded,
+                            color: AppColors.primary)
+                        : null,
+                    onTap: () async {
+                      await ref
+                          .read(settingsProvider.notifier)
+                          .setLanguage(lang.code);
+                      if (!context.mounted) return;
+                      Navigator.pop(context);
+                      context.showSnackBar(
+                        '${strings.t('language_updated')}: ${lang.label}',
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

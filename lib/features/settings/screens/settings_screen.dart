@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/extensions/context_extensions.dart';
+import '../../../core/l10n/app_languages.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/providers/service_providers.dart';
 import '../../../core/routes/app_router.dart';
 import '../../../core/theme/app_colors.dart';
@@ -313,43 +315,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
 
           // ---- Language ---------------------------------------------------
-          const _SectionHeader(
+          _SectionHeader(
             icon: Icons.language_rounded,
-            title: 'Language',
+            title: ref.watch(appStringsProvider).t('language'),
           ),
           _Card(
             child: Column(
               children: <Widget>[
-                _LanguageTile(
-                  label: 'English',
-                  code: 'en',
-                  selected: settings.language == 'en',
-                  onTap: () async {
-                    await ref.read(settingsProvider.notifier).setLanguage('en');
-                    if (context.mounted) {
-                      context.showSnackBar('Language set to English');
-                    }
-                  },
-                ),
-                const Divider(height: 1),
-                _LanguageTile(
-                  label: 'हिन्दी (Hindi)',
-                  code: 'hi',
-                  selected: settings.language == 'hi',
-                  onTap: () {
-                    context.showSnackBar(
-                      'Hindi translations are coming soon',
-                    );
-                  },
-                ),
-                const Divider(height: 1),
-                const ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  enabled: false,
-                  leading: Icon(Icons.more_horiz_rounded),
-                  title: Text('More languages'),
-                  subtitle: Text('Coming soon'),
-                ),
+                for (var i = 0; i < kSupportedAppLanguages.length; i++) ...<Widget>[
+                  if (i > 0) const Divider(height: 1),
+                  _LanguageTile(
+                    label: kSupportedAppLanguages[i].label,
+                    code: kSupportedAppLanguages[i].code,
+                    selected:
+                        settings.language == kSupportedAppLanguages[i].code,
+                    onTap: () async {
+                      final lang = kSupportedAppLanguages[i];
+                      await ref
+                          .read(settingsProvider.notifier)
+                          .setLanguage(lang.code);
+                      if (!context.mounted) return;
+                      final strings = ref.read(appStringsProvider);
+                      context.showSnackBar(
+                        '${strings.t('language_updated')}: ${lang.label}',
+                      );
+                    },
+                  ),
+                ],
               ],
             ),
           ),
