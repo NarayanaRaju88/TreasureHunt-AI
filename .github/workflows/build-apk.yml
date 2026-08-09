@@ -51,10 +51,14 @@ jobs:
           echo "Then re-download google-services.json"
 
       - name: Build APK
+        env:
+          # Gradle reads this for AndroidManifest Maps meta-data.
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
         run: |
           flutter build apk --release \
             --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
-            --dart-define=GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
+            --dart-define=GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }} \
+            --dart-define=WEATHER_API_KEY=${{ secrets.WEATHER_API_KEY }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

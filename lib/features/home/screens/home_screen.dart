@@ -42,6 +42,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   WeatherModel? _weather;
   bool _weatherLoading = true;
+  String? _weatherStatus;
 
   Timer? _countdownTimer;
   Duration _timeRemaining = Duration.zero;
@@ -93,15 +94,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _loadWeather() async {
-    setState(() => _weatherLoading = true);
+    setState(() {
+      _weatherLoading = true;
+      _weatherStatus = null;
+    });
     try {
       final service = ref.read(weatherServiceProvider);
-      if (service.isConfigured) {
-        final weather = await service.getCurrentWeather(_lat, _lng);
-        if (mounted) setState(() => _weather = weather);
+      if (!service.isConfigured) {
+        if (mounted) {
+          setState(() {
+            _weather = null;
+            _weatherStatus = 'Add WEATHER_API_KEY to enable live weather';
+          });
+        }
+        return;
+      }
+      final weather = await service.getCurrentWeather(_lat, _lng);
+      if (mounted) {
+        setState(() {
+          _weather = weather;
+          _weatherStatus = null;
+        });
       }
     } catch (_) {
-      // Ignore — weather widget will show a friendly placeholder.
+      if (mounted) {
+        setState(() {
+          _weather = null;
+          _weatherStatus = 'Weather temporarily unavailable';
+        });
+      }
     } finally {
       if (mounted) setState(() => _weatherLoading = false);
     }
@@ -184,6 +205,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: _WeatherWidget(
                     weather: _weather,
                     loading: _weatherLoading,
+                    statusMessage: _weatherStatus,
                   ),
                 ),
               ),
@@ -473,7 +495,10 @@ class _DailyTreasure extends StatelessWidget {
   Widget build(BuildContext context) {
     return daily.when(
       loading: () => const TreasureCardSkeleton(),
-      error: (error, _) => _ErrorCard(onRetry: onRetry),
+      error: (error, _) => _ErrorCard(
+        onRetry: onRetry,
+        message: error.toString(),
+      ),
       data: (treasure) {
         if (treasure == null) return _EmptyCard(onRetry: onRetry);
         return Column(
@@ -513,15 +538,23 @@ class _DailyTreasure extends StatelessWidget {
 }
 
 class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({required this.onRetry});
+  const _ErrorCard({
+    required this.onRetry,
+    this.message,
+  });
 
   final VoidCallback onRetry;
+  final String? message;
 
   @override
   Widget build(BuildContext context) {
+    final detail = (message == null || message!.trim().isEmpty)
+        ? 'Check your connection and API keys, then try again.'
+        : message!.replaceFirst(RegExp(r'^[^:]+:\s*'), '');
+
     return Container(
-      height: 200,
       width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: context.colors.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(24),
@@ -534,6 +567,15 @@ class _ErrorCard extends StatelessWidget {
           Text(
             "Couldn't load today's treasure",
             style: context.textTheme.titleSmall,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            detail,
+            textAlign: TextAlign.center,
+            style: context.textTheme.bodySmall?.copyWith(
+              color: context.colors.onSurface.withValues(alpha: 0.7),
+            ),
           ),
           const SizedBox(height: 8),
           TextButton(onPressed: onRetry, child: const Text('Try Again')),
@@ -593,10 +635,15 @@ class _EmptyCard extends StatelessWidget {
 // Weather
 // =============================================================================
 class _WeatherWidget extends StatelessWidget {
-  const _WeatherWidget({required this.weather, required this.loading});
+  const _WeatherWidget({
+    required this.weather,
+    required this.loading,
+    this.statusMessage,
+  });
 
   final WeatherModel? weather;
   final bool loading;
+  final String? statusMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -637,7 +684,7 @@ class _WeatherWidget extends StatelessWidget {
                 Text(
                   w != null
                       ? '${w.condition}${w.cityName != null ? ' · ${w.cityName}' : ''}'
-                      : 'Weather unavailable',
+                      : (statusMessage ?? 'Weather unavailable'),
                   style: context.textTheme.bodyMedium?.copyWith(
                     color: context.colors.onSurface.withValues(alpha: 0.7),
                   ),

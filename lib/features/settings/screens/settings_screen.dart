@@ -108,10 +108,53 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _openUrl(String url) async {
     final uri = Uri.parse(url);
-    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!ok && mounted) {
-      context.showSnackBar('Could not open link', isError: true);
+    try {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && mounted) {
+        context.showSnackBar('Could not open link', isError: true);
+      }
+    } catch (_) {
+      if (mounted) {
+        context.showSnackBar('Could not open link', isError: true);
+      }
     }
+  }
+
+  void _showInfoSheet({
+    required String title,
+    required String body,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            24,
+            8,
+            24,
+            24 + MediaQuery.paddingOf(context).bottom,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                Text(body),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _logout() async {
@@ -280,16 +323,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   label: 'English',
                   code: 'en',
                   selected: settings.language == 'en',
-                  onTap: () =>
-                      ref.read(settingsProvider.notifier).setLanguage('en'),
+                  onTap: () async {
+                    await ref.read(settingsProvider.notifier).setLanguage('en');
+                    if (context.mounted) {
+                      context.showSnackBar('Language set to English');
+                    }
+                  },
                 ),
                 const Divider(height: 1),
                 _LanguageTile(
                   label: 'हिन्दी (Hindi)',
                   code: 'hi',
                   selected: settings.language == 'hi',
-                  onTap: () =>
-                      ref.read(settingsProvider.notifier).setLanguage('hi'),
+                  onTap: () {
+                    context.showSnackBar(
+                      'Hindi translations are coming soon',
+                    );
+                  },
                 ),
                 const Divider(height: 1),
                 const ListTile(
@@ -329,8 +379,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   leading: const Icon(Icons.privacy_tip_rounded,
                       color: AppColors.primary),
                   title: const Text('Privacy Policy'),
-                  trailing: const Icon(Icons.open_in_new_rounded, size: 18),
-                  onTap: () => _openUrl(AppConstants.privacyPolicyUrl),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => _showInfoSheet(
+                    title: 'Privacy Policy',
+                    body:
+                        'AI Treasure Hunt stores your account profile, discovery '
+                        'history, and optional location data to generate nearby '
+                        'treasures. We do not sell personal data. You can delete '
+                        'your account anytime from Settings.\n\n'
+                        'For questions: ${AppConstants.supportEmail}',
+                  ),
                 ),
                 const Divider(height: 1),
                 ListTile(
@@ -338,8 +396,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   leading: const Icon(Icons.description_rounded,
                       color: AppColors.primary),
                   title: const Text('Terms of Service'),
-                  trailing: const Icon(Icons.open_in_new_rounded, size: 18),
-                  onTap: () => _openUrl(AppConstants.termsUrl),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => _showInfoSheet(
+                    title: 'Terms of Service',
+                    body:
+                        'Use AI Treasure Hunt for personal exploration only. '
+                        'Respect private property and local laws while hunting. '
+                        'AI-generated content may be imperfect — always use your '
+                        'judgment outdoors.\n\n'
+                        'App version ${AppConstants.appVersion}',
+                  ),
                 ),
               ],
             ),
@@ -364,6 +430,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     style: context.textTheme.labelMedium?.copyWith(
                       color: context.colors.onSurface.withValues(alpha: 0.6),
                     ),
+                  ),
+                  onTap: () => _showInfoSheet(
+                    title: AppConstants.appName,
+                    body:
+                        '${AppConstants.appTagline}\n\n'
+                        'Version ${AppConstants.appVersion}\n'
+                        'Built with Flutter, Firebase, and Google Gemini.',
                   ),
                 ),
                 const Divider(height: 1),

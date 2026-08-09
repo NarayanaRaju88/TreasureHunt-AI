@@ -4,6 +4,7 @@ import '../../../core/services/hive_service.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/services/weather_service.dart';
 import '../models/daily_challenge_model.dart';
+import '../models/treasure_category.dart';
 import '../models/treasure_history_model.dart';
 import '../models/treasure_model.dart';
 
@@ -111,15 +112,33 @@ class TreasureRepositoryImpl implements TreasureRepository {
       cityName = null;
     }
 
-    // 3) Generate via Gemini and persist.
-    final treasure = await _gemini.generateDailyTreasure(
-      lat: lat,
-      lng: lng,
-      weather: weatherSummary,
-      interests: interests,
-      previousDiscoveries: previous,
-      cityName: cityName,
-    );
+    // 3) Generate via Gemini, or fall back to a local demo treasure so Home/Map
+    // still work when GEMINI_API_KEY is missing / AI is unavailable.
+    TreasureModel treasure;
+    try {
+      if (!_gemini.isConfigured) {
+        treasure = _localDailyTreasure(
+          lat: lat,
+          lng: lng,
+          cityName: cityName,
+        );
+      } else {
+        treasure = await _gemini.generateDailyTreasure(
+          lat: lat,
+          lng: lng,
+          weather: weatherSummary,
+          interests: interests,
+          previousDiscoveries: previous,
+          cityName: cityName,
+        );
+      }
+    } catch (_) {
+      treasure = _localDailyTreasure(
+        lat: lat,
+        lng: lng,
+        cityName: cityName,
+      );
+    }
 
     try {
       await _firestore.saveDailyTreasure(uid, treasure);
@@ -127,6 +146,53 @@ class TreasureRepositoryImpl implements TreasureRepository {
       // Non-fatal: still return the generated treasure for this session.
     }
     return treasure;
+  }
+
+  /// Offline / unconfigured AI fallback near the user.
+  TreasureModel _localDailyTreasure({
+    required double lat,
+    required double lng,
+    String? cityName,
+  }) {
+    final now = DateTime.now();
+    final dayKey =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final place = (cityName == null || cityName.trim().isEmpty)
+        ? 'your neighborhood'
+        : cityName;
+    // Offset ~150m so the pin is nearby but not exactly on the user.
+    const offset = 0.0014;
+    return TreasureModel(
+      id: 'local-daily-$dayKey',
+      title: 'Explorer\'s Nearby Landmark',
+      description:
+          'A starter treasure near $place. Add a Gemini API key to unlock '
+          'fresh AI-generated adventures every day.',
+      category: TreasureCategory.walkingChallenge,
+      lat: lat + offset,
+      lng: lng + offset,
+      difficulty: TreasureDifficulty.easy,
+      xpReward: 40,
+      distance: _location.calculateDistance(
+        startLat: lat,
+        startLng: lng,
+        endLat: lat + offset,
+        endLng: lng + offset,
+      ),
+      estimatedWalkingMinutes: 3,
+      funFacts: const <String>[
+        'Every great explorer starts with a short walk.',
+        'AI treasures unlock once GEMINI_API_KEY is configured in the build.',
+      ],
+      aiStory:
+          'While Gemini is offline, this local landmark keeps the hunt going. '
+          'Walk toward the pin, collect XP, and come back tomorrow for more.',
+      nearbyRecommendations: const <String>[
+        'Look for a park, cafe, or quiet street corner nearby.',
+      ],
+      createdAt: now,
+      expiresAt: DateTime(now.year, now.month, now.day, 23, 59, 59),
+    );
   }
 
   @override
