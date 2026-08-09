@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -30,6 +31,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   late final Animation<double> _fade;
   Timer? _navTimer;
   bool _navigated = false;
+  int _authWaitTicks = 0;
 
   @override
   void initState() {
@@ -45,10 +47,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     );
     _logoController.forward();
 
-    // Auto-navigate after ~3 seconds.
     _navTimer = Timer(
-     AppConstants.splashDuration,
-    _decideNavigation,
+      AppConstants.splashDuration,
+      _decideNavigation,
     );
   }
 
@@ -60,49 +61,48 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   void _decideNavigation() {
-  if (_navigated || !mounted) return;
+    if (_navigated || !mounted) return;
 
-  final prefs = ref.read(sharedPreferencesProvider);
-  final bool onboarded =
-      prefs.getBool(AppConstants.keyOnboardingComplete) ?? false;
+    final prefs = ref.read(sharedPreferencesProvider);
+    final bool onboarded =
+        prefs.getBool(AppConstants.keyOnboardingComplete) ?? false;
 
-  if (!onboarded) {
+    if (!onboarded) {
+      _go(AppRoutes.onboarding);
+      return;
+    }
+
+    final authState = ref.read(authStateProvider);
+
+    // Wait briefly for Firebase auth, but never stay on splash forever.
+    if (authState.isLoading && _authWaitTicks < 6) {
+      _authWaitTicks++;
+      _navTimer?.cancel();
+      _navTimer = Timer(
+        const Duration(milliseconds: 400),
+        _decideNavigation,
+      );
+      return;
+    }
+
+    final bool signedIn = authState.valueOrNull != null ||
+        ref.read(currentUserProvider).isAuthenticated ||
+        fb.FirebaseAuth.instance.currentUser != null;
+
+    _go(signedIn ? AppRoutes.home : AppRoutes.login);
+  }
+
+  void _go(String routeName) {
+    if (_navigated || !mounted) return;
     _navigated = true;
-
     try {
-      context.goNamed(AppRoutes.onboarding);
+      context.goNamed(routeName);
     } catch (e, st) {
-      debugPrint('Navigation Error (Onboarding): $e');
+      debugPrint('Navigation Error: $e');
       debugPrintStack(stackTrace: st);
     }
-    return;
   }
 
-  final authState = ref.read(authStateProvider);
-
-  // Wait until Firebase authentication is fully initialized.
-  if (authState.isLoading) {
-    _navTimer?.cancel();
-    _navTimer = Timer(
-      const Duration(milliseconds: 500),
-      _decideNavigation,
-    );
-    return;
-  }
-
-  final bool signedIn = authState.valueOrNull != null;
-
-  _navigated = true;
-
-  try {
-    context.goNamed(
-      signedIn ? AppRoutes.home : AppRoutes.login,
-    );
-  } catch (e, st) {
-    debugPrint('Navigation Error: $e');
-    debugPrintStack(stackTrace: st);
-  }
-}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -114,7 +114,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 const Spacer(flex: 2),
-                // Lottie treasure animation with graceful fallback.
                 SizedBox(
                   height: 220,
                   width: 220,

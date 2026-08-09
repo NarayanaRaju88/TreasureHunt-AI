@@ -81,13 +81,22 @@ class TreasureRepositoryImpl implements TreasureRepository {
     List<String> interests = const <String>[],
     bool forceRegenerate = false,
   }) async {
-    // 1) Return the already-stored daily treasure if present (short timeout).
+    // 1) Return cached daily treasure only if it is still near the user.
     if (!forceRegenerate) {
       try {
         final existing = await _firestore
             .getDailyTreasure(uid)
             .timeout(const Duration(seconds: 4));
-        if (existing != null) return existing;
+        if (existing != null) {
+          final distance = _location.calculateDistance(
+            startLat: lat,
+            startLng: lng,
+            endLat: existing.lat,
+            endLng: existing.lng,
+          );
+          // Keep cache only when within ~3 km of the player.
+          if (distance <= 3000) return existing;
+        }
       } catch (_) {
         // Continue to generate / fallback.
       }
@@ -120,7 +129,7 @@ class TreasureRepositoryImpl implements TreasureRepository {
     String? cityName;
     try {
       cityName = await _location
-          .getAddressFromCoordinates(lat, lng)
+          .getCityName(lat, lng)
           .timeout(const Duration(seconds: 2));
     } catch (_) {
       cityName = null;
@@ -174,16 +183,16 @@ class TreasureRepositoryImpl implements TreasureRepository {
     final dayKey =
         '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     final place = (cityName == null || cityName.trim().isEmpty)
-        ? 'your neighborhood'
-        : cityName;
+        ? 'your area'
+        : cityName.trim();
     // Offset ~150m so the pin is nearby but not exactly on the user.
     const offset = 0.0014;
     return TreasureModel(
       id: 'local-daily-$dayKey',
-      title: 'Explorer\'s Nearby Landmark',
+      title: 'Nearby Explorer Spot',
       description:
-          'A starter treasure near $place. Add a Gemini API key to unlock '
-          'fresh AI-generated adventures every day.',
+          'A walkable discovery near $place. Head to the pin, look around, '
+          'and collect XP when you arrive.',
       category: TreasureCategory.walkingChallenge,
       lat: lat + offset,
       lng: lng + offset,
@@ -198,11 +207,11 @@ class TreasureRepositoryImpl implements TreasureRepository {
       estimatedWalkingMinutes: 3,
       funFacts: const <String>[
         'Every great explorer starts with a short walk.',
-        'AI treasures unlock once GEMINI_API_KEY is configured in the build.',
+        'New nearby spots appear as you keep exploring each day.',
       ],
       aiStory:
-          'While Gemini is offline, this local landmark keeps the hunt going. '
-          'Walk toward the pin, collect XP, and come back tomorrow for more.',
+          'Your daily hunt begins close to home. Walk toward the pin, notice '
+          'what makes this corner unique, and claim your XP when you arrive.',
       nearbyRecommendations: const <String>[
         'Look for a park, cafe, or quiet street corner nearby.',
       ],
@@ -312,11 +321,13 @@ class TreasureRepositoryImpl implements TreasureRepository {
     // Cache locally first for instant UI + offline safety.
     await _hive.addHistory(history);
 
-    try {
-      await _firestore.saveTreasureCollection(uid, history);
-    } catch (_) {
-      // Remote save can be retried later; local cache holds the record.
-    }
+    unawaited(() async {
+      try {
+        await _firestore
+            .saveTreasureCollection(uid, history)
+            .timeout(const Duration(seconds: 8));
+      } catch (_) {}
+    }());
     return history;
   }
 

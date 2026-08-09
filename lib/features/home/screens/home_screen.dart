@@ -33,12 +33,11 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  // Fallback coordinates (San Francisco) if device location is unavailable.
-  static const double _fallbackLat = 37.7749;
-  static const double _fallbackLng = -122.4194;
-
-  double _lat = _fallbackLat;
-  double _lng = _fallbackLng;
+  // Real device coordinates only — never default to another city.
+  double? _lat;
+  double? _lng;
+  bool _locating = true;
+  String? _locationError;
 
   WeatherModel? _weather;
   bool _weatherLoading = true;
@@ -64,41 +63,72 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _bootstrap() async {
-    // Start treasure immediately with last-known / fallback coords so Home
-    // never waits on a slow GPS lock.
-    unawaited(_loadDaily());
-    unawaited(_loadWeather());
+    setState(() {
+      _locating = true;
+      _locationError = null;
+    });
     unawaited(ref.read(gamificationProvider.notifier).registerDailyActivity());
 
-    final pos = await ref.read(locationServiceProvider).getLocationFast();
+    final pos = await ref.read(locationServiceProvider).getLocationFast(
+          timeout: const Duration(seconds: 8),
+        );
     if (!mounted) return;
-    if (pos != null) {
-      final movedFar = (pos.latitude - _lat).abs() > 0.01 ||
-          (pos.longitude - _lng).abs() > 0.01;
-      _lat = pos.latitude;
-      _lng = pos.longitude;
-      if (movedFar) {
-        unawaited(_loadDaily());
-        unawaited(_loadWeather());
-      }
+
+    if (pos == null) {
+      setState(() {
+        _locating = false;
+        _locationError =
+            'Turn on location permission to unlock treasures near you.';
+        _weatherLoading = false;
+        _weatherStatus = 'Location needed for local weather';
+      });
+      return;
     }
+
+    _lat = pos.latitude;
+    _lng = pos.longitude;
+    setState(() => _locating = false);
+
+    await Future.wait<void>(<Future<void>>[
+      _loadDaily(forceRegenerate: true),
+      _loadWeather(),
+    ]);
   }
 
   Future<void> _resolveLocation() async {
-    final pos = await ref.read(locationServiceProvider).getLocationFast();
+    final pos = await ref.read(locationServiceProvider).getLocationFast(
+          timeout: const Duration(seconds: 8),
+        );
     if (pos != null) {
       _lat = pos.latitude;
       _lng = pos.longitude;
     }
   }
 
-  Future<void> _loadDaily() async {
-    await ref
-        .read(treasureProvider.notifier)
-        .loadDailyTreasure(lat: _lat, lng: _lng);
+  Future<void> _loadDaily({bool forceRegenerate = false}) async {
+    final lat = _lat;
+    final lng = _lng;
+    if (lat == null || lng == null) return;
+    await ref.read(treasureProvider.notifier).loadDailyTreasure(
+          lat: lat,
+          lng: lng,
+          forceRegenerate: forceRegenerate,
+        );
   }
 
   Future<void> _loadWeather() async {
+    final lat = _lat;
+    final lng = _lng;
+    if (lat == null || lng == null) {
+      if (mounted) {
+        setState(() {
+          _weatherLoading = false;
+          _weatherStatus = 'Location needed for local weather';
+        });
+      }
+      return;
+    }
+
     setState(() {
       _weatherLoading = true;
       _weatherStatus = null;
@@ -109,12 +139,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         if (mounted) {
           setState(() {
             _weather = null;
-            _weatherStatus = 'Add WEATHER_API_KEY to enable live weather';
+            _weatherStatus = 'Weather is temporarily offline';
           });
         }
         return;
       }
-      final weather = await service.getCurrentWeather(_lat, _lng);
+      final weather = await service.getCurrentWeather(lat, lng);
       if (mounted) {
         setState(() {
           _weather = weather;
@@ -152,8 +182,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _refresh() async {
     await _resolveLocation();
     if (!mounted) return;
+    if (_lat == null || _lng == null) {
+      setState(() {
+        _locationError =
+            'Turn on location permission to unlock treasures near you.';
+      });
+      return;
+    }
     await Future.wait<void>(<Future<void>>[
-      _loadDaily(),
+      _loadDaily(forceRegenerate: true),
       _loadWeather(),
     ]);
   }
@@ -194,19 +231,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: _SectionHeader(
                   title: "Today's Treasure",
                   actionLabel: 'Refresh',
-                  onAction: _loadDaily,
+                  onAction: _refresh,
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 10)),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _DailyTreasure(
-                    daily: daily,
-                    timeRemaining: _timeRemaining,
-                    onRetry: _loadDaily,
-                    onTap: () => context.goNamed(AppRoutes.discovery),
-                  ),
+                  child: _locating
+                      ? const TreasureCardSkeleton()
+                      : _locationError != null
+                          ? _ErrorCard(
+                              onRetry: _bootstrap,
+                              message: _locationError,
+                            )
+                          : _DailyTreasure(
+                              daily: daily,
+                              timeRemaining: _timeRemaining,
+                              onRetry: () => _loadDaily(forceRegenerate: true),
+                              onTap: () => context.goNamed(AppRoutes.discovery),
+                            ),
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 20)),
