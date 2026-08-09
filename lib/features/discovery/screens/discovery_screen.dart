@@ -18,6 +18,7 @@ import '../../../core/routes/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../core/widgets/difficulty_badge.dart';
+import '../../../core/widgets/treasure_route_mini_map.dart';
 import '../../treasure/models/treasure_model.dart';
 import '../../treasure/models/treasure_category.dart';
 import '../../treasure/providers/treasure_provider.dart';
@@ -295,6 +296,8 @@ class _DiscoveryContent extends StatelessWidget {
                     height: 1.5,
                   ),
                 ),
+                const SizedBox(height: 24),
+                TreasureRouteMiniMap(treasure: treasure),
                 const SizedBox(height: 24),
                 _FunFactsSection(facts: treasure.funFacts),
                 const SizedBox(height: 20),

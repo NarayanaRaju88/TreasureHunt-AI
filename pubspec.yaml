@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   # UI / Design
   cupertino_icons: ^1.0.8
@@ -70,7 +72,7 @@ dependencies:
   confetti: ^0.7.0
 
   # Utilities
-  intl: ^0.19.0
+  intl: ^0.20.2
   uuid: ^4.4.2
   equatable: ^2.0.5
   logger: ^2.4.0
