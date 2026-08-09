@@ -163,7 +163,7 @@ class _TreasureRouteMiniMapState extends ConsumerState<TreasureRouteMiniMap> {
                   )
                 : AppConstants.googleMapsApiKey.isEmpty
                     ? _MissingMapsKey(onOpenFullMap: () {
-                        context.pushNamed(AppRoutes.map);
+                        context.goNamed(AppRoutes.map);
                       })
                     : GoogleMap(
                         initialCameraPosition: CameraPosition(
@@ -233,7 +233,7 @@ class _TreasureRouteMiniMapState extends ConsumerState<TreasureRouteMiniMap> {
           children: <Widget>[
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () => context.pushNamed(AppRoutes.map),
+                onPressed: () => context.goNamed(AppRoutes.map),
                 icon: const Icon(Icons.map_rounded),
                 label: Text(strings.t('open_full_map')),
               ),

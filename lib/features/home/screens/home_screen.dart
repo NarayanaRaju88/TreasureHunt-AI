@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/providers/service_providers.dart';
@@ -71,7 +72,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _locating = true;
       _locationError = null;
     });
-    unawaited(ref.read(gamificationProvider.notifier).registerDailyActivity());
+    await ref.read(gamificationProvider.notifier).registerDailyActivity();
+    if (mounted) {
+      final g = ref.read(gamificationProvider);
+      final streak = ref.read(streakProvider);
+      if (g.streakIncreased && streak > 0) {
+        final bonusNote = streak % 7 == 0
+            ? ' Streak bonus unlocked!'
+            : '';
+        context.showSnackBar(
+          'Day $streak streak! +${AppConstants.xpDailyLogin} daily XP.$bonusNote',
+        );
+        ref.read(gamificationProvider.notifier).acknowledgeStreak();
+      }
+    }
 
     final pos = await ref.read(locationServiceProvider).getLocationFast(
           timeout: const Duration(seconds: 8),
@@ -259,6 +273,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 16)),
               SliverToBoxAdapter(child: _ProgressSection(user: user)),
+              const SliverToBoxAdapter(child: SizedBox(height: 12)),
+              const SliverToBoxAdapter(child: _DailyGoalsCard()),
               const SliverToBoxAdapter(child: SizedBox(height: 20)),
               SliverToBoxAdapter(
                 child: _SectionHeader(
@@ -587,6 +603,111 @@ class _ProgressSection extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _DailyGoalsCard extends ConsumerWidget {
+  const _DailyGoalsCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final streak = ref.watch(streakProvider);
+    final discoveries = ref.watch(currentUserProvider).user?.totalDiscoveries ?? 0;
+    final daily = ref.watch(dailyTreasureProvider).asData?.value;
+    final collectedToday = daily?.isCollected == true;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: GlassmorphicContainer(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                const Icon(Icons.flag_rounded, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Today\'s goals',
+                  style: context.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _GoalRow(
+              done: streak > 0,
+              title: 'Open the app (streak)',
+              subtitle: streak > 0
+                  ? 'Day $streak · +${AppConstants.xpDailyLogin} XP earned'
+                  : 'Visit daily to keep your streak alive',
+            ),
+            const SizedBox(height: 8),
+            _GoalRow(
+              done: collectedToday,
+              title: 'Collect a treasure',
+              subtitle: collectedToday
+                  ? 'Nice! Mystery box already opened'
+                  : 'Walk to a pin and collect for XP + mystery box',
+            ),
+            const SizedBox(height: 8),
+            _GoalRow(
+              done: discoveries > 0,
+              title: 'Grow your explorer journal',
+              subtitle: '$discoveries discoveries so far',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GoalRow extends StatelessWidget {
+  const _GoalRow({
+    required this.done,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final bool done;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Icon(
+          done ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+          color: done ? AppColors.success : AppColors.grey500,
+          size: 22,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  decoration: done ? TextDecoration.lineThrough : null,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: context.textTheme.bodySmall?.copyWith(
+                  color: context.colors.onSurface.withValues(alpha: 0.65),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

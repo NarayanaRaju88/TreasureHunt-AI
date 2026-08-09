@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/extensions/context_extensions.dart';
+import '../../../core/navigation/app_nav.dart';
 import '../../../core/providers/service_providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_utils.dart';
@@ -250,11 +251,17 @@ class _MapScreenState extends ConsumerState<MapScreen>
       _rebuildMarkers(treasure);
     }
 
-    return Scaffold(
+    return PopScope(
+      canPop: context.routerCanPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.goBackOr();
+      },
+      child: Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: context.backOrHomeLeading(color: Colors.white),
         title: const Text('Treasure Map'),
         flexibleSpace: Container(
           decoration: BoxDecoration(
@@ -395,6 +402,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
             ),
         ],
       ),
+    ),
     );
   }
 }

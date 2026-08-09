@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/extensions/context_extensions.dart';
+import '../../../core/navigation/app_nav.dart';
 import '../../../core/routes/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/validators.dart';
@@ -90,13 +91,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: IconButton(
-                    onPressed: () {
-                     if (Navigator.of(context).canPop()) {
-                    Navigator.of(context).pop();
-                     } else {
-                      context.goNamed(AppRoutes.login);
-                     }
-                     },
+                    onPressed: () =>
+                        context.goBackOr(fallbackRoute: AppRoutes.login),
                     icon: const Icon(Icons.arrow_back_rounded,
                         color: Colors.white),
                   ),

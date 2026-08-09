@@ -5,6 +5,7 @@ import '../../../core/utils/app_utils.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../domain/models/user_model.dart';
 import '../models/achievement_model.dart';
+import '../models/badge_model.dart';
 import '../repositories/gamification_repository.dart';
 
 /// Transient gamification UI state (recent rewards, level-up flags).
@@ -13,6 +14,7 @@ class GamificationState {
     this.lastXpGained = 0,
     this.leveledUp = false,
     this.lastReward,
+    this.streakIncreased = false,
     this.isBusy = false,
     this.error,
   });
@@ -20,6 +22,7 @@ class GamificationState {
   final int lastXpGained;
   final bool leveledUp;
   final MysteryBoxReward? lastReward;
+  final bool streakIncreased;
   final bool isBusy;
   final String? error;
 
@@ -28,6 +31,7 @@ class GamificationState {
     bool? leveledUp,
     MysteryBoxReward? lastReward,
     bool clearReward = false,
+    bool? streakIncreased,
     bool? isBusy,
     String? error,
     bool clearError = false,
@@ -36,6 +40,7 @@ class GamificationState {
       lastXpGained: lastXpGained ?? this.lastXpGained,
       leveledUp: leveledUp ?? this.leveledUp,
       lastReward: clearReward ? null : (lastReward ?? this.lastReward),
+      streakIncreased: streakIncreased ?? this.streakIncreased,
       isBusy: isBusy ?? this.isBusy,
       error: clearError ? null : (error ?? this.error),
     );
@@ -79,11 +84,18 @@ class GamificationNotifier extends StateNotifier<GamificationState> {
   Future<void> registerDailyActivity() async {
     final user = _user;
     if (user == null) return;
-    state = state.copyWith(isBusy: true, clearError: true);
+    final previousStreak = user.dailyStreak;
+    state = state.copyWith(
+      isBusy: true,
+      clearError: true,
+      streakIncreased: false,
+    );
     try {
       final updated = await _repo.updateStreak(user);
       _ref.read(currentUserProvider.notifier).setUser(updated);
-      state = state.copyWith(isBusy: false);
+      final increased = updated.dailyStreak > previousStreak ||
+          (previousStreak == 0 && updated.dailyStreak >= 1);
+      state = state.copyWith(isBusy: false, streakIncreased: increased);
     } catch (e) {
       state = state.copyWith(isBusy: false, error: e.toString());
     }
@@ -100,7 +112,6 @@ class GamificationNotifier extends StateNotifier<GamificationState> {
       if (unlocked.xpReward > 0) {
         await awardXp(unlocked.xpReward);
       }
-      // Refresh the achievements list.
       _ref.invalidate(achievementsProvider);
       return unlocked;
     } catch (e) {
@@ -109,17 +120,39 @@ class GamificationNotifier extends StateNotifier<GamificationState> {
     }
   }
 
-  /// Opens a mystery box, awarding the rolled XP and storing the reward.
+  /// Opens a mystery box, awarding the rolled XP (and a badge for gold+).
   Future<MysteryBoxReward?> openMysteryBox() async {
     final user = _user;
     if (user == null) return null;
     final reward = _repo.getMysteryBoxReward(level: user.level);
-    await awardXp(reward.xp);
+    final result = await awardXp(reward.xp);
+    if (result != null && reward.rarity.weight >= BadgeRarity.gold.weight) {
+      final badgeId = '${reward.rarity.key}_hunter';
+      if (!result.user.badges.contains(badgeId)) {
+        final withBadge = result.user.copyWith(
+          badges: <String>[...result.user.badges, badgeId],
+        );
+        _ref.read(currentUserProvider.notifier).setUser(withBadge);
+        try {
+          await _ref.read(hiveServiceProvider).saveUser(withBadge);
+          if (!withBadge.isGuest) {
+            await _ref.read(firestoreServiceProvider).updateUser(
+              withBadge.uid,
+              <String, dynamic>{'badges': withBadge.badges},
+            );
+          }
+        } catch (_) {
+          // Keep badge in-session even if remote write fails.
+        }
+      }
+    }
     state = state.copyWith(lastReward: reward);
     return reward;
   }
 
   void acknowledgeLevelUp() => state = state.copyWith(leveledUp: false);
+
+  void acknowledgeStreak() => state = state.copyWith(streakIncreased: false);
 
   void clearReward() => state = state.copyWith(clearReward: true);
 
@@ -161,11 +194,8 @@ final xpToNextLevelProvider = Provider<int>((ref) {
 });
 
 /// Current daily streak.
-///
-/// Streak support is temporarily disabled until the new
-/// UserModel includes streak fields again.
 final streakProvider = Provider<int>((ref) {
-  return 0;
+  return ref.watch(currentUserProvider).user?.dailyStreak ?? 0;
 });
 
 /// The signed-in user's achievements (fetched from the repository).

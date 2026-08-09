@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../../core/constants/app_constants.dart';
 import '../../../core/services/firestore_service.dart';
 import '../../../core/services/hive_service.dart';
@@ -116,8 +118,45 @@ class GamificationRepositoryImpl implements GamificationRepository {
 
   @override
   Future<UserModel> updateStreak(UserModel user) async {
-    // Temporarily disabled until streak fields are added to UserModel.
-    return user;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final last = user.lastActive;
+    final lastDay = DateTime(last.year, last.month, last.day);
+    final dayGap = today.difference(lastDay).inDays;
+
+    // Already checked in today — refresh lastActive only.
+    if (dayGap == 0 && user.dailyStreak > 0) {
+      final touched = user.copyWith(lastActive: now);
+      await _persistUser(touched, <String, dynamic>{
+        'lastActiveDate': Timestamp.fromDate(now),
+      });
+      return touched;
+    }
+
+    final int nextStreak;
+    if (dayGap == 1 || (dayGap == 0 && user.dailyStreak == 0)) {
+      nextStreak = user.dailyStreak <= 0 ? 1 : user.dailyStreak + 1;
+    } else {
+      nextStreak = 1;
+    }
+
+    var bonusXp = AppConstants.xpDailyLogin;
+    if (nextStreak > 0 &&
+        nextStreak % AppConstants.streakBonusThresholdDays == 0) {
+      bonusXp += AppConstants.streakBonusXp;
+    }
+
+    final withStreak = user.copyWith(
+      dailyStreak: nextStreak,
+      lastActive: now,
+    );
+    // Persist streak first, then apply login XP through the normal level curve.
+    await _persistUser(withStreak, <String, dynamic>{
+      'dailyStreak': nextStreak,
+      'lastActiveDate': Timestamp.fromDate(now),
+    });
+    final xpResult = await addXP(withStreak, bonusXp);
+    return xpResult.user;
   }
   
   @override
