@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/service_providers.dart';
 import '../../../core/theme/app_colors.dart';
@@ -284,6 +285,43 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 }
                 if (treasure != null) _fitBounds(treasure);
               },
+            ),
+
+          if (AppConstants.googleMapsApiKey.isEmpty &&
+              !_loadingLocation &&
+              _locationError == null)
+            Positioned.fill(
+              child: ColoredBox(
+                color: Colors.black.withValues(alpha: 0.55),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const <Widget>[
+                        Icon(Icons.map_outlined, color: Colors.white, size: 48),
+                        SizedBox(height: 12),
+                        Text(
+                          'Google Maps key missing',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Add GOOGLE_MAPS_API_KEY to GitHub Actions secrets, '
+                          'enable Maps SDK for Android, then rebuild the APK.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
 
           // ---- Prominent distance + ETA banner -----------------------------

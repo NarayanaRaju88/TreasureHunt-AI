@@ -341,30 +341,84 @@ class _StatsGrid extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final streak = ref.watch(streakProvider);
     final km = (user?.totalWalkingDistance ?? 0) / 1000;
+
+    void showStatSheet({
+      required String title,
+      required String body,
+    }) {
+      showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (context) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                Text(body),
+              ],
+            ),
+          );
+        },
+      );
+    }
+
     final items = <Widget>[
       _StatCard(
         icon: Icons.explore_rounded,
         value: '${user?.totalDiscoveries ?? 0}',
         label: 'Discoveries',
         color: AppColors.primary,
+        onTap: () => showStatSheet(
+          title: 'Discoveries',
+          body:
+              'You have found ${user?.totalDiscoveries ?? 0} treasure(s). '
+              'Collect more from Home or Map to grow this count.',
+        ),
       ),
       _StatCard(
         icon: Icons.emoji_events_rounded,
         value: '${user?.badges.length ?? 0}',
         label: 'Badges',
         color: AppColors.accentDark,
+        onTap: () => showStatSheet(
+          title: 'Badges',
+          body:
+              'You currently have ${user?.badges.length ?? 0} badge(s). '
+              'Unlock more by completing treasures and daily challenges.',
+        ),
       ),
       _StatCard(
         icon: Icons.directions_walk_rounded,
         value: km >= 10 ? km.round().toString() : km.toStringAsFixed(1),
         label: 'Walking KM',
         color: AppColors.secondary,
+        onTap: () => showStatSheet(
+          title: 'Walking distance',
+          body:
+              'You have walked ${km.toStringAsFixed(2)} km while hunting treasures. '
+              'Distance is added when you collect a treasure.',
+        ),
       ),
       _StatCard(
         icon: Icons.local_fire_department_rounded,
         value: '$streak',
         label: 'Day Streak',
         color: const Color(0xFFFF5722),
+        onTap: () => showStatSheet(
+          title: 'Day streak',
+          body:
+              'Your current streak is $streak day(s). Open the app and explore '
+              'daily to keep it alive.',
+        ),
       ),
     ];
     return Padding(
@@ -388,57 +442,66 @@ class _StatCard extends StatelessWidget {
     required this.value,
     required this.label,
     required this.color,
+    this.onTap,
   });
 
   final IconData icon;
   final String value;
   final String label;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        children: <Widget>[
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.18),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 24),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: color.withValues(alpha: 0.22)),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                Text(
-                  value,
-                  style: context.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: color,
-                  ),
+          child: Row(
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
                 ),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.bodySmall?.copyWith(
-                    color: context.colors.onSurface.withValues(alpha: 0.7),
-                  ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Text(
+                      value,
+                      style: context.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: color,
+                      ),
+                    ),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.textTheme.bodySmall?.copyWith(
+                        color: context.colors.onSurface.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
