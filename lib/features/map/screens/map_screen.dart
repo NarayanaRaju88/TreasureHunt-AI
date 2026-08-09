@@ -68,8 +68,19 @@ class _MapScreenState extends ConsumerState<MapScreen>
     });
     try {
       final location = ref.read(locationServiceProvider);
-      final pos = await location.getCurrentLocation();
+      final pos = await location.getLocationFast(
+        timeout: const Duration(seconds: 6),
+      );
       if (!mounted) return;
+      if (pos == null) {
+        setState(() {
+          _loadingLocation = false;
+          _locationError =
+              'We need your location to reveal nearby treasures. Please enable '
+              'location and try again.';
+        });
+        return;
+      }
       setState(() {
         _current = pos;
         _loadingLocation = false;

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../../core/services/firestore_service.dart';
 import '../../../core/services/gemini_service.dart';
 import '../../../core/services/hive_service.dart';
@@ -79,18 +81,26 @@ class TreasureRepositoryImpl implements TreasureRepository {
     List<String> interests = const <String>[],
     bool forceRegenerate = false,
   }) async {
-    // 1) Return the already-stored daily treasure if present.
+    // 1) Return the already-stored daily treasure if present (short timeout).
     if (!forceRegenerate) {
-      final existing = await _firestore.getDailyTreasure(uid);
-      if (existing != null) return existing;
+      try {
+        final existing = await _firestore
+            .getDailyTreasure(uid)
+            .timeout(const Duration(seconds: 4));
+        if (existing != null) return existing;
+      } catch (_) {
+        // Continue to generate / fallback.
+      }
     }
 
-    // 2) Gather context (weather + previous discoveries) best-effort.
+    // 2) Gather context best-effort with tight timeouts so Home never hangs.
     String? weatherSummary;
     final weatherSvc = _weather;
     if (weatherSvc != null && weatherSvc.isConfigured) {
       try {
-        final weather = await weatherSvc.getCurrentWeather(lat, lng);
+        final weather = await weatherSvc
+            .getCurrentWeather(lat, lng)
+            .timeout(const Duration(seconds: 4));
         weatherSummary = weather.summary;
       } catch (_) {
         weatherSummary = null;
@@ -99,7 +109,9 @@ class TreasureRepositoryImpl implements TreasureRepository {
 
     List<String> previous = const <String>[];
     try {
-      final history = await _firestore.getUserHistory(uid, limit: 20);
+      final history = await _firestore
+          .getUserHistory(uid, limit: 10)
+          .timeout(const Duration(seconds: 3));
       previous = history.map((h) => h.title).toList();
     } catch (_) {
       previous = _hive.getHistory().map((h) => h.title).toList();
@@ -107,13 +119,14 @@ class TreasureRepositoryImpl implements TreasureRepository {
 
     String? cityName;
     try {
-      cityName = await _location.getAddressFromCoordinates(lat, lng);
+      cityName = await _location
+          .getAddressFromCoordinates(lat, lng)
+          .timeout(const Duration(seconds: 2));
     } catch (_) {
       cityName = null;
     }
 
-    // 3) Generate via Gemini, or fall back to a local demo treasure so Home/Map
-    // still work when GEMINI_API_KEY is missing / AI is unavailable.
+    // 3) Generate via Gemini (with timeout), or fall back locally.
     TreasureModel treasure;
     try {
       if (!_gemini.isConfigured) {
@@ -123,14 +136,16 @@ class TreasureRepositoryImpl implements TreasureRepository {
           cityName: cityName,
         );
       } else {
-        treasure = await _gemini.generateDailyTreasure(
-          lat: lat,
-          lng: lng,
-          weather: weatherSummary,
-          interests: interests,
-          previousDiscoveries: previous,
-          cityName: cityName,
-        );
+        treasure = await _gemini
+            .generateDailyTreasure(
+              lat: lat,
+              lng: lng,
+              weather: weatherSummary,
+              interests: interests,
+              previousDiscoveries: previous,
+              cityName: cityName,
+            )
+            .timeout(const Duration(seconds: 12));
       }
     } catch (_) {
       treasure = _localDailyTreasure(
@@ -140,11 +155,12 @@ class TreasureRepositoryImpl implements TreasureRepository {
       );
     }
 
-    try {
-      await _firestore.saveDailyTreasure(uid, treasure);
-    } catch (_) {
-      // Non-fatal: still return the generated treasure for this session.
-    }
+    // Persist in background — don't block the UI on Firestore writes.
+    unawaited(() async {
+      try {
+        await _firestore.saveDailyTreasure(uid, treasure);
+      } catch (_) {}
+    }());
     return treasure;
   }
 

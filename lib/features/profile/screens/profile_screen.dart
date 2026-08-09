@@ -348,10 +348,13 @@ class _StatsGrid extends ConsumerWidget {
     }) {
       showModalBottomSheet<void>(
         context: context,
+        useRootNavigator: true,
+        isScrollControlled: true,
         showDragHandle: true,
         builder: (context) {
+          final bottomInset = MediaQuery.paddingOf(context).bottom;
           return Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+            padding: EdgeInsets.fromLTRB(24, 8, 24, 24 + bottomInset),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,

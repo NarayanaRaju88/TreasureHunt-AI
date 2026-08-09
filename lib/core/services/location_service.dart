@@ -42,25 +42,49 @@ class LocationService {
   /// Whether the OS location service is enabled.
   Future<bool> isServiceEnabled() => Geolocator.isLocationServiceEnabled();
 
+  /// Fast path for Home/Map bootstrap: last-known first, then a timed fix.
+  ///
+  /// Never hangs forever — returns `null` when location is unavailable.
+  Future<Position?> getLocationFast({
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
+    try {
+      final last = await getLastKnownLocation();
+      if (last != null) return last;
+    } catch (_) {}
+
+    try {
+      return await getCurrentLocation(
+        accuracy: LocationAccuracy.low,
+        timeout: timeout,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Gets a single, current position fix (ensuring permissions first).
   Future<Position> getCurrentLocation({
-  LocationAccuracy accuracy = LocationAccuracy.high,
-}) async {
-  await requestPermissions();
+    LocationAccuracy accuracy = LocationAccuracy.high,
+    Duration timeout = const Duration(seconds: 8),
+  }) async {
+    await requestPermissions();
 
-  try {
-    return await Geolocator.getCurrentPosition(
-      desiredAccuracy: accuracy,
-    );
-  } catch (e, st) {
-    throw LocationException(
-      'Could not determine your location. Please try again.',
-      code: 'position-unavailable',
-      cause: e,
-      stackTrace: st,
-    );
+    try {
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy: accuracy,
+        timeLimit: timeout,
+      );
+    } catch (e, st) {
+      throw LocationException(
+        'Could not determine your location. Please try again.',
+        code: 'position-unavailable',
+        cause: e,
+        stackTrace: st,
+      );
+    }
   }
-}
+
   /// Returns the last known position if available (fast, may be stale).
   Future<Position?> getLastKnownLocation() async {
     try {
@@ -71,17 +95,16 @@ class LocationService {
   }
 
   /// A continuous stream of position updates for live tracking.
-
   Stream<Position> getLocationStream({
-  LocationAccuracy accuracy = LocationAccuracy.high,
-  int distanceFilterMeters = AppConstants.locationDistanceFilterMeters,
+    LocationAccuracy accuracy = LocationAccuracy.high,
+    int distanceFilterMeters = AppConstants.locationDistanceFilterMeters,
   }) {
-  return Geolocator.getPositionStream(
-    locationSettings: LocationSettings(
-      accuracy: accuracy,
-      distanceFilter: distanceFilterMeters,
-     ),
-   );
+    return Geolocator.getPositionStream(
+      locationSettings: LocationSettings(
+        accuracy: accuracy,
+        distanceFilter: distanceFilterMeters,
+      ),
+    );
   }
 
   /// Distance in meters between two coordinates (Haversine).
@@ -125,7 +148,8 @@ class LocationService {
   /// Returns `null` if no placemark is found. Never throws for "no result".
   Future<String?> getAddressFromCoordinates(double lat, double lng) async {
     try {
-      final placemarks = await placemarkFromCoordinates(lat, lng);
+      final placemarks = await placemarkFromCoordinates(lat, lng)
+          .timeout(const Duration(seconds: 3));
       if (placemarks.isEmpty) return null;
       final p = placemarks.first;
       final parts = <String?>[
@@ -154,7 +178,8 @@ class LocationService {
   /// Forward-geocodes an address string into coordinates.
   Future<Location?> getCoordinatesFromAddress(String address) async {
     try {
-      final locations = await locationFromAddress(address);
+      final locations = await locationFromAddress(address)
+          .timeout(const Duration(seconds: 5));
       return locations.isEmpty ? null : locations.first;
     } catch (e, st) {
       throw LocationException(

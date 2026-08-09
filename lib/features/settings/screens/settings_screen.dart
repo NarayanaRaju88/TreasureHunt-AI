@@ -126,6 +126,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }) {
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       showDragHandle: true,
       isScrollControlled: true,
       builder: (context) {
