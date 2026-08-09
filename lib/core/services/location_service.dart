@@ -143,6 +143,25 @@ class LocationService {
     return distance <= radiusMeters;
   }
 
+  /// Short place label for UI (city / locality only).
+  Future<String?> getCityName(double lat, double lng) async {
+    try {
+      final placemarks = await placemarkFromCoordinates(lat, lng)
+          .timeout(const Duration(seconds: 3));
+      if (placemarks.isEmpty) return null;
+      final p = placemarks.first;
+      final city = p.locality?.trim();
+      if (city != null && city.isNotEmpty) return city;
+      final sub = p.subAdministrativeArea?.trim();
+      if (sub != null && sub.isNotEmpty) return sub;
+      final area = p.administrativeArea?.trim();
+      if (area != null && area.isNotEmpty) return area;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Reverse-geocodes coordinates into a human-readable address string.
   ///
   /// Returns `null` if no placemark is found. Never throws for "no result".

@@ -43,7 +43,30 @@ class AuthRepositoryImpl implements AuthRepository {
         return null;
       }
 
-      final user = await _resolveUser(firebaseUser);
+      // Never block app startup/navigation on slow Firestore.
+      UserModel user;
+      try {
+        user = await _resolveUser(firebaseUser)
+            .timeout(const Duration(seconds: 6));
+      } catch (_) {
+        final cached = _hive.getUser();
+        if (cached != null && cached.uid == firebaseUser.uid) {
+          user = cached;
+        } else {
+          final now = DateTime.now();
+          user = UserModel(
+            uid: firebaseUser.uid,
+            email: firebaseUser.email ?? '',
+            displayName:
+                firebaseUser.displayName ??
+                (firebaseUser.isAnonymous ? 'Guest Explorer' : 'Explorer'),
+            photoUrl: firebaseUser.photoURL,
+            isGuest: firebaseUser.isAnonymous,
+            createdAt: now,
+            lastActive: now,
+          );
+        }
+      }
 
       _cachedUser = user;
 
@@ -161,16 +184,23 @@ class AuthRepositoryImpl implements AuthRepository {
       );
     }
 
-    try {
-      final existing = await _firestore.getUser(firebaseUser.uid);
-
-      if (existing != null) {
-        return _finalize(existing);
-      }
-    } catch (_) {}
+    // Return immediately after Firebase auth so login never feels stuck.
+    // Firestore profile sync happens in the background.
+    final cached = _hive.getUser();
+    if (cached != null && cached.uid == firebaseUser.uid) {
+      unawaited(() async {
+        try {
+          await _firestore
+              .updateUser(cached.uid, {
+                'lastActiveDate': Timestamp.fromDate(DateTime.now()),
+              })
+              .timeout(const Duration(seconds: 5));
+        } catch (_) {}
+      }());
+      return _finalize(cached.copyWith(lastActive: DateTime.now()));
+    }
 
     final now = DateTime.now();
-
     final guest = UserModel(
       uid: firebaseUser.uid,
       email: '',
@@ -188,9 +218,13 @@ class AuthRepositoryImpl implements AuthRepository {
       lastActive: now,
     );
 
-    try {
-      await _firestore.createUser(guest);
-    } catch (_) {}
+    unawaited(() async {
+      try {
+        await _firestore
+            .createUser(guest)
+            .timeout(const Duration(seconds: 8));
+      } catch (_) {}
+    }());
 
     return _finalize(guest);
   }

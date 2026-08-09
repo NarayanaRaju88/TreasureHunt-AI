@@ -128,7 +128,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Signs in anonymously as a guest.
   Future<bool> continueAsGuest() {
     return _run(
-      () => _repo.signInAsGuest(),
+      () => _repo.signInAsGuest().timeout(
+            const Duration(seconds: 12),
+            onTimeout: () => throw const AuthException(
+              'Guest sign-in is taking too long. Please try again.',
+              code: 'guest-timeout',
+            ),
+          ),
     );
   }
 

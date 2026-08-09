@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -58,24 +59,36 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     if (_collected || _collecting) return;
     setState(() => _collecting = true);
 
-    final history =
-        await ref.read(treasureProvider.notifier).collectTreasure(treasure);
-    final xp = treasure.effectiveXpReward;
-    await ref.read(gamificationProvider.notifier).awardXp(xp);
+    try {
+      final history = await ref
+          .read(treasureProvider.notifier)
+          .collectTreasure(treasure)
+          .timeout(const Duration(seconds: 10));
+      final xp = treasure.effectiveXpReward;
+      unawaited(
+        ref.read(gamificationProvider.notifier).awardXp(xp).catchError((_) => null),
+      );
 
-    if (!mounted) return;
-    setState(() {
-      _collecting = false;
-      _collected = true;
-      _xpGained = history?.xpEarned ?? xp;
-      _showXpBurst = true;
-    });
-    _confetti.play();
+      if (!mounted) return;
+      setState(() {
+        _collecting = false;
+        _collected = true;
+        _xpGained = history?.xpEarned ?? xp;
+        _showXpBurst = true;
+      });
+      _confetti.play();
 
-    // Auto-hide the XP burst after its animation completes.
-    Future<void>.delayed(const Duration(milliseconds: 1800), () {
-      if (mounted) setState(() => _showXpBurst = false);
-    });
+      Future<void>.delayed(const Duration(milliseconds: 1800), () {
+        if (mounted) setState(() => _showXpBurst = false);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _collecting = false);
+      context.showSnackBar(
+        'Could not collect treasure. Please try again.',
+        isError: true,
+      );
+    }
   }
 
   Future<void> _shareScreenshot(TreasureModel treasure) async {
