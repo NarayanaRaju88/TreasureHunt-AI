@@ -19,7 +19,8 @@ android {
     defaultConfig {
         applicationId = "app.aitreasurehunt"
 
-        minSdk = 21
+        // Firebase / Google Maps plugins require API 23+.
+        minSdk = maxOf(23, flutter.minSdkVersion)
         targetSdk = flutter.targetSdkVersion
 
         versionCode = flutter.versionCode
@@ -27,8 +28,10 @@ android {
 
         multiDexEnabled = true
 
+        // Prefer CI/local env var; fall back to empty so debug builds still assemble.
+        // Pass GOOGLE_MAPS_API_KEY at build time (env or --dart-define is separate for Dart).
         manifestPlaceholders["GOOGLE_MAPS_API_KEY"] =
-        System.getenv("GOOGLE_MAPS_API_KEY") ?: ""
+            System.getenv("GOOGLE_MAPS_API_KEY") ?: project.findProperty("GOOGLE_MAPS_API_KEY") as String? ?: ""
     }
 
     buildTypes {

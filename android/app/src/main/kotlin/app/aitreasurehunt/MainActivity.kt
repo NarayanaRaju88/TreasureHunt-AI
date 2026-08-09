@@ -1,6 +1,5 @@
-package com.example.ai_treasure_hunt
+package app.aitreasurehunt
 
 import io.flutter.embedding.android.FlutterActivity
 
 class MainActivity : FlutterActivity()
-
