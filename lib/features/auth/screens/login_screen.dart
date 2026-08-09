@@ -276,7 +276,7 @@ class _LoginScreenState
                                     loading
                                         ? null
                                         : () => context
-                                            .goNamed(
+                                            .pushNamed(
                                             AppRoutes
                                                 .forgotPassword,
                                           ),
@@ -422,7 +422,7 @@ class _LoginScreenState
                           onTap: loading
                               ? null
                               : () => context
-                                  .goNamed(
+                                  .pushNamed(
                                   AppRoutes
                                       .register,
                                 ),

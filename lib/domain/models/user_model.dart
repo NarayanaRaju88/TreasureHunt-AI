@@ -8,6 +8,7 @@ class UserModel extends Equatable {
   final String? photoUrl;
   final int xp;
   final int level;
+  final int dailyStreak;
   final List<String> interests;
   final List<String> badges;
   final int totalDiscoveries;
@@ -24,6 +25,7 @@ class UserModel extends Equatable {
     this.photoUrl,
     this.xp = 0,
     this.level = 1,
+    this.dailyStreak = 0,
     this.interests = const [],
     this.badges = const [],
     this.totalDiscoveries = 0,
@@ -81,6 +83,7 @@ class UserModel extends Equatable {
         photoUrl: map['photoUrl'] as String?,
         xp: _asInt(map['xp']),
         level: _asInt(map['level'] ?? 1),
+        dailyStreak: _asInt(map['dailyStreak']),
         interests: List<String>.from(map['interests'] ?? const []),
         badges: List<String>.from(map['badges'] ?? const []),
         totalDiscoveries: _asInt(map['totalDiscoveries']),
@@ -114,6 +117,7 @@ class UserModel extends Equatable {
       'photoUrl': photoUrl,
       'xp': xp,
       'level': level,
+      'dailyStreak': dailyStreak,
       'interests': interests,
       'badges': badges,
       'totalDiscoveries': totalDiscoveries,
@@ -136,6 +140,7 @@ class UserModel extends Equatable {
       'photoUrl': photoUrl,
       'xp': xp,
       'level': level,
+      'dailyStreak': dailyStreak,
       'interests': interests,
       'badges': badges,
       'totalDiscoveries': totalDiscoveries,
@@ -154,6 +159,7 @@ class UserModel extends Equatable {
     String? photoUrl,
     int? xp,
     int? level,
+    int? dailyStreak,
     List<String>? interests,
     List<String>? badges,
     int? totalDiscoveries,
@@ -170,6 +176,7 @@ class UserModel extends Equatable {
         photoUrl: photoUrl ?? this.photoUrl,
         xp: xp ?? this.xp,
         level: level ?? this.level,
+        dailyStreak: dailyStreak ?? this.dailyStreak,
         interests: interests ?? this.interests,
         badges: badges ?? this.badges,
         totalDiscoveries: totalDiscoveries ?? this.totalDiscoveries,
@@ -189,6 +196,7 @@ class UserModel extends Equatable {
         photoUrl,
         xp,
         level,
+        dailyStreak,
         interests,
         badges,
         totalDiscoveries,

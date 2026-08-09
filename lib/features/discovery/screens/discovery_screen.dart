@@ -14,7 +14,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/errors/app_exceptions.dart';
 import '../../../core/extensions/context_extensions.dart';
-import '../../../core/routes/app_router.dart';
+import '../../../core/navigation/app_nav.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../core/widgets/difficulty_badge.dart';
@@ -23,6 +23,7 @@ import '../../treasure/models/treasure_model.dart';
 import '../../treasure/models/treasure_category.dart';
 import '../../treasure/providers/treasure_provider.dart';
 import '../../gamification/providers/gamification_provider.dart';
+import '../../gamification/widgets/collect_rewards_dialog.dart';
 
 /// Hero tag shared between the map/home cards and the discovery image.
 const String kDiscoveryHeroTag = 'discovery-treasure-image';
@@ -80,24 +81,40 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
       }
 
       final xp = treasure.effectiveXpReward;
-      unawaited(
-        ref
-            .read(gamificationProvider.notifier)
-            .awardXp(xp)
-            .catchError((_) => null),
-      );
+      final xpResult = await ref
+          .read(gamificationProvider.notifier)
+          .awardXp(xp)
+          .catchError((_) => null);
+
+      // Extra satisfaction: mystery box bonus on every successful collect.
+      final mystery = await ref
+          .read(gamificationProvider.notifier)
+          .openMysteryBox()
+          .catchError((_) => null);
 
       if (!mounted) return;
       setState(() {
         _collecting = false;
         _collected = true;
-        _xpGained = history.xpEarned;
+        _xpGained = (history.xpEarned) + (mystery?.xp ?? 0);
         _showXpBurst = true;
       });
       _confetti.play();
 
-      Future<void>.delayed(const Duration(milliseconds: 1800), () {
-        if (mounted) setState(() => _showXpBurst = false);
+      Future<void>.delayed(const Duration(milliseconds: 1400), () async {
+        if (!mounted) return;
+        setState(() => _showXpBurst = false);
+        final streak = ref.read(streakProvider);
+        await showCollectRewardsDialog(
+          context,
+          treasureXp: xp,
+          streak: streak,
+          xpResult: xpResult,
+          mystery: mystery,
+        );
+        if (xpResult?.leveledUp == true) {
+          ref.read(gamificationProvider.notifier).acknowledgeLevelUp();
+        }
       });
     } catch (e) {
       if (!mounted) return;
@@ -144,14 +161,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     }
   }
 
-  void _goBack() {
-    final router = GoRouter.of(context);
-    if (router.canPop()) {
-      router.pop();
-    } else {
-      context.goNamed(AppRoutes.home);
-    }
-  }
+  void _goBack() => context.goBackOr();
 
   @override
   Widget build(BuildContext context) {
@@ -161,7 +171,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     final daily = ref.watch(dailyTreasureProvider);
 
     return PopScope(
-      canPop: GoRouter.of(context).canPop(),
+      canPop: context.routerCanPop,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _goBack();
       },
@@ -264,11 +274,7 @@ class _DiscoveryContent extends StatelessWidget {
           pinned: true,
           backgroundColor: treasure.category.color,
           foregroundColor: Colors.white,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded),
-            tooltip: 'Back',
-            onPressed: onBack,
-          ),
+          leading: context.backOrHomeLeading(color: Colors.white),
           flexibleSpace: FlexibleSpaceBar(
             background: _HeroImage(treasure: treasure),
           ),
