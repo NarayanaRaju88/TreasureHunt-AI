@@ -110,7 +110,9 @@ Player context:
 
 Rules:
 - Keep it within a short walking distance (roughly 300-1500 meters).
-- Pick a category from this exact list: ${TreasureCategoryX.allKeys.join(', ')}.
+- Pick a REAL PLACE category from this exact list only: ${TreasureCategoryX.placeKeys.join(', ')}.
+- Do NOT use challenge categories like walking_challenge, quiz_treasure, ai_challenge, or learning_treasure.
+- Prefer cafes, parks, food, photo spots, lakes, viewpoints, museums, temples, bookstores, and historic places.
 - Difficulty must be one of: easy, medium, hard.
 - Provide small, plausible latitude/longitude offsets from the player.
 - Make the description evocative but concise (max 2 sentences).

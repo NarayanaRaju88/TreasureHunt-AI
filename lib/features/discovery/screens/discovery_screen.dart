@@ -8,10 +8,13 @@ import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/errors/app_exceptions.dart';
 import '../../../core/extensions/context_extensions.dart';
+import '../../../core/routes/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../core/widgets/difficulty_badge.dart';
@@ -63,17 +66,31 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
       final history = await ref
           .read(treasureProvider.notifier)
           .collectTreasure(treasure)
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 12));
+      if (history == null) {
+        if (!mounted) return;
+        setState(() => _collecting = false);
+        final err = ref.read(treasureProvider).error;
+        context.showSnackBar(
+          err ?? 'Get closer to the treasure pin before collecting.',
+          isError: true,
+        );
+        return;
+      }
+
       final xp = treasure.effectiveXpReward;
       unawaited(
-        ref.read(gamificationProvider.notifier).awardXp(xp).catchError((_) => null),
+        ref
+            .read(gamificationProvider.notifier)
+            .awardXp(xp)
+            .catchError((_) => null),
       );
 
       if (!mounted) return;
       setState(() {
         _collecting = false;
         _collected = true;
-        _xpGained = history?.xpEarned ?? xp;
+        _xpGained = history.xpEarned;
         _showXpBurst = true;
       });
       _confetti.play();
@@ -81,13 +98,14 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
       Future<void>.delayed(const Duration(milliseconds: 1800), () {
         if (mounted) setState(() => _showXpBurst = false);
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _collecting = false);
-      context.showSnackBar(
-        'Could not collect treasure. Please try again.',
-        isError: true,
-      );
+      final message = e is AppException
+          ? e.message
+          : (ref.read(treasureProvider).error ??
+              'Could not collect treasure. Please try again.');
+      context.showSnackBar(message, isError: true);
     }
   }
 
@@ -125,68 +143,90 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     }
   }
 
+  void _goBack() {
+    final router = GoRouter.of(context);
+    if (router.canPop()) {
+      router.pop();
+    } else {
+      context.goNamed(AppRoutes.home);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final extra = GoRouterState.of(context).extra;
+    final TreasureModel? selected =
+        extra is TreasureModel ? extra : null;
     final daily = ref.watch(dailyTreasureProvider);
 
-    return Scaffold(
-      body: daily.when(
-        loading: () => const _DiscoveryLoading(),
-        error: (e, _) => _DiscoveryError(
-          message: 'Could not load treasure details.',
-          onRetry: () => setState(() {}),
-        ),
-        data: (treasure) {
-          if (treasure == null) {
-            return const _DiscoveryEmpty();
-          }
-          return Stack(
-            children: <Widget>[
-              RepaintBoundary(
-                key: _shareBoundaryKey,
-                child: _DiscoveryContent(
-                  treasure: treasure,
-                  collected: _collected,
-                  collecting: _collecting,
-                  sharing: _sharing,
-                  onCollect: () => _collect(treasure),
-                  onShare: () => _shareScreenshot(treasure),
+    return PopScope(
+      canPop: GoRouter.of(context).canPop(),
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _goBack();
+      },
+      child: Scaffold(
+        body: selected != null
+            ? _buildTreasureBody(selected)
+            : daily.when(
+                loading: () => _DiscoveryLoading(onBack: _goBack),
+                error: (e, _) => _DiscoveryError(
+                  message: 'Could not load treasure details.',
+                  onRetry: () => setState(() {}),
+                  onBack: _goBack,
                 ),
+                data: (treasure) {
+                  if (treasure == null) {
+                    return _DiscoveryEmpty(onBack: _goBack);
+                  }
+                  return _buildTreasureBody(treasure);
+                },
               ),
-
-              // Confetti celebration overlay.
-              Align(
-                alignment: Alignment.topCenter,
-                child: ConfettiWidget(
-                  confettiController: _confetti,
-                  blastDirectionality: BlastDirectionality.explosive,
-                  shouldLoop: false,
-                  numberOfParticles: 30,
-                  maxBlastForce: 22,
-                  minBlastForce: 8,
-                  gravity: 0.28,
-                  emissionFrequency: 0.05,
-                  colors: const <Color>[
-                    AppColors.primary,
-                    AppColors.accent,
-                    AppColors.secondary,
-                    AppColors.gold,
-                    AppColors.legendary,
-                  ],
-                ),
-              ),
-
-              // XP-gain burst animation.
-              if (_showXpBurst)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: Center(child: _XpBurst(xp: _xpGained)),
-                  ),
-                ),
-            ],
-          );
-        },
       ),
+    );
+  }
+
+  Widget _buildTreasureBody(TreasureModel treasure) {
+    return Stack(
+      children: <Widget>[
+        RepaintBoundary(
+          key: _shareBoundaryKey,
+          child: _DiscoveryContent(
+            treasure: treasure,
+            collected: _collected,
+            collecting: _collecting,
+            sharing: _sharing,
+            onCollect: () => _collect(treasure),
+            onShare: () => _shareScreenshot(treasure),
+            onBack: _goBack,
+          ),
+        ),
+        Align(
+          alignment: Alignment.topCenter,
+          child: ConfettiWidget(
+            confettiController: _confetti,
+            blastDirectionality: BlastDirectionality.explosive,
+            shouldLoop: false,
+            numberOfParticles: 30,
+            maxBlastForce: 22,
+            minBlastForce: 8,
+            gravity: 0.28,
+            emissionFrequency: 0.05,
+            colors: const <Color>[
+              AppColors.primary,
+              AppColors.accent,
+              AppColors.secondary,
+              AppColors.gold,
+              AppColors.legendary,
+            ],
+          ),
+        ),
+        if (_showXpBurst)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Center(child: _XpBurst(xp: _xpGained)),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -202,6 +242,7 @@ class _DiscoveryContent extends StatelessWidget {
     required this.sharing,
     required this.onCollect,
     required this.onShare,
+    required this.onBack,
   });
 
   final TreasureModel treasure;
@@ -210,6 +251,7 @@ class _DiscoveryContent extends StatelessWidget {
   final bool sharing;
   final VoidCallback onCollect;
   final VoidCallback onShare;
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -221,6 +263,11 @@ class _DiscoveryContent extends StatelessWidget {
           pinned: true,
           backgroundColor: treasure.category.color,
           foregroundColor: Colors.white,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded),
+            tooltip: 'Back',
+            onPressed: onBack,
+          ),
           flexibleSpace: FlexibleSpaceBar(
             background: _HeroImage(treasure: treasure),
           ),
@@ -874,91 +921,154 @@ class _XpBurstState extends State<_XpBurst>
 // Loading / error / empty states
 // =============================================================================
 class _DiscoveryLoading extends StatelessWidget {
-  const _DiscoveryLoading();
+  const _DiscoveryLoading({required this.onBack});
+
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          const CircularProgressIndicator(),
-          const SizedBox(height: 16),
-          Text(
-            'Uncovering your treasure…',
-            style: context.textTheme.titleSmall
-                ?.copyWith(fontWeight: FontWeight.w600),
+    return Column(
+      children: <Widget>[
+        SafeArea(
+          bottom: false,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded),
+              onPressed: onBack,
+            ),
           ),
-        ],
-      ),
+        ),
+        Expanded(
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(
+                  'Uncovering your treasure…',
+                  style: context.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
 
 class _DiscoveryError extends StatelessWidget {
-  const _DiscoveryError({required this.message, required this.onRetry});
+  const _DiscoveryError({
+    required this.message,
+    required this.onRetry,
+    required this.onBack,
+  });
 
   final String message;
   final VoidCallback onRetry;
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            const Icon(Icons.error_outline_rounded,
-                size: 64, color: AppColors.error),
-            const SizedBox(height: 16),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Retry'),
+    return Column(
+      children: <Widget>[
+        SafeArea(
+          bottom: false,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded),
+              onPressed: onBack,
             ),
-          ],
+          ),
         ),
-      ),
+        Expanded(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  const Icon(Icons.error_outline_rounded,
+                      size: 64, color: AppColors.error),
+                  const SizedBox(height: 16),
+                  Text(message, textAlign: TextAlign.center),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
 
 class _DiscoveryEmpty extends StatelessWidget {
-  const _DiscoveryEmpty();
+  const _DiscoveryEmpty({required this.onBack});
+
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Transform.rotate(
-              angle: -math.pi / 12,
-              child: const Icon(Icons.travel_explore_rounded,
-                  size: 72, color: AppColors.primary),
+    return Column(
+      children: <Widget>[
+        SafeArea(
+          bottom: false,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded),
+              onPressed: onBack,
             ),
-            const SizedBox(height: 16),
-            Text(
-              'No treasure yet',
-              style: context.textTheme.titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Head to the map to reveal your daily treasure!',
-              textAlign: TextAlign.center,
-              style: context.textTheme.bodyMedium?.copyWith(
-                color: context.colors.onSurface.withValues(alpha: 0.7),
+          ),
+        ),
+        Expanded(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Transform.rotate(
+                    angle: -math.pi / 12,
+                    child: const Icon(Icons.travel_explore_rounded,
+                        size: 72, color: AppColors.primary),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No treasure yet',
+                    style: context.textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Head home to load nearby offers and your daily treasure.',
+                    textAlign: TextAlign.center,
+                    style: context.textTheme.bodyMedium?.copyWith(
+                      color: context.colors.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: onBack,
+                    icon: const Icon(Icons.home_rounded),
+                    label: const Text('Back to Home'),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

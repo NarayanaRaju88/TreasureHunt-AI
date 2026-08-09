@@ -234,6 +234,27 @@ extension TreasureCategoryX on TreasureCategory {
     }
   }
 
+  /// Place-style categories used for nearby offers (not challenge/quiz types).
+  static const List<TreasureCategory> placeCategories = <TreasureCategory>[
+    TreasureCategory.hiddenCafe,
+    TreasureCategory.hiddenPark,
+    TreasureCategory.streetFood,
+    TreasureCategory.photoSpot,
+    TreasureCategory.bookStore,
+    TreasureCategory.lake,
+    TreasureCategory.sunsetPoint,
+    TreasureCategory.temple,
+    TreasureCategory.museum,
+    TreasureCategory.historicalPlace,
+  ];
+
+  /// Whether this category is a real-place offer (cafe, park, etc.).
+  bool get isPlaceOffer => placeCategories.contains(this);
+
+  /// Place category keys for Gemini prompts.
+  static List<String> get placeKeys =>
+      placeCategories.map((c) => c.key).toList(growable: false);
+
   /// Parses a persisted [key] (or enum name) back into a [TreasureCategory].
   ///
   /// Falls back to [TreasureCategory.photoSpot] for unknown values so the app

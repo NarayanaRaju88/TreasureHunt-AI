@@ -91,6 +91,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     await Future.wait<void>(<Future<void>>[
       _loadDaily(forceRegenerate: true),
+      _loadNearby(),
       _loadWeather(),
     ]);
   }
@@ -114,6 +115,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           lng: lng,
           forceRegenerate: forceRegenerate,
         );
+  }
+
+  Future<void> _loadNearby() async {
+    final lat = _lat;
+    final lng = _lng;
+    if (lat == null || lng == null) return;
+    await ref.read(treasureProvider.notifier).loadNearby(lat: lat, lng: lng);
+  }
+
+  void _openTreasure(TreasureModel? treasure) {
+    if (treasure != null) {
+      context.pushNamed(AppRoutes.discovery, extra: treasure);
+    } else {
+      context.pushNamed(AppRoutes.discovery);
+    }
   }
 
   Future<void> _loadWeather() async {
@@ -191,6 +207,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     await Future.wait<void>(<Future<void>>[
       _loadDaily(forceRegenerate: true),
+      _loadNearby(),
       _loadWeather(),
     ]);
   }
@@ -206,11 +223,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider).user;
     final daily = ref.watch(dailyTreasureProvider);
+    final nearby = ref.watch(treasureListProvider);
+    final nearbyLoading = ref.watch(
+      treasureProvider.select((s) => s.isLoadingNearby),
+    );
 
     return Scaffold(
       extendBody: true,
       floatingActionButton: _ExploreFab(
-        onPressed: () => context.goNamed(AppRoutes.discovery),
+        onPressed: () => _openTreasure(daily.asData?.value),
       ),
       body: SafeArea(
         bottom: false,
@@ -249,8 +270,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               daily: daily,
                               timeRemaining: _timeRemaining,
                               onRetry: () => _loadDaily(forceRegenerate: true),
-                              onTap: () => context.goNamed(AppRoutes.discovery),
+                              onTap: () => _openTreasure(daily.asData?.value),
                             ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+              const SliverToBoxAdapter(
+                child: _SectionHeader(title: 'Nearby Offers'),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 10)),
+              SliverToBoxAdapter(
+                child: _NearbyOffers(
+                  locating: _locating,
+                  locationError: _locationError,
+                  loading: nearbyLoading,
+                  offers: nearby,
+                  onRetry: _loadNearby,
+                  onTap: _openTreasure,
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 20)),
@@ -590,6 +626,66 @@ class _DailyTreasure extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _NearbyOffers extends StatelessWidget {
+  const _NearbyOffers({
+    required this.locating,
+    required this.locationError,
+    required this.loading,
+    required this.offers,
+    required this.onRetry,
+    required this.onTap,
+  });
+
+  final bool locating;
+  final String? locationError;
+  final bool loading;
+  final List<TreasureModel> offers;
+  final VoidCallback onRetry;
+  final ValueChanged<TreasureModel> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (locating || loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: TreasureCardSkeleton(),
+      );
+    }
+    if (locationError != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: _ErrorCard(onRetry: onRetry, message: locationError),
+      );
+    }
+    if (offers.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: _EmptyCard(onRetry: onRetry),
+      );
+    }
+
+    return SizedBox(
+      height: 210,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: offers.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final treasure = offers[index];
+          return SizedBox(
+            width: 280,
+            child: TreasureCard(
+              treasure: treasure,
+              onTap: () => onTap(treasure),
+            ),
+          );
+        },
+      ),
     );
   }
 }
