@@ -113,13 +113,12 @@ class _LoginScreenState
     final error =
         ref.read(currentUserProvider).error;
 
-    if (error != null &&
-        error.isNotEmpty) {
-      context.showSnackBar(
-        error,
-        isError: true,
-      );
-    }
+    context.showSnackBar(
+      (error != null && error.isNotEmpty)
+          ? error
+          : 'Sign-in failed. Please try again.',
+      isError: true,
+    );
   }
 
   @override

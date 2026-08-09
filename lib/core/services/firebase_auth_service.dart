@@ -59,6 +59,17 @@ class FirebaseAuthService {
     } on FirebaseAuthException catch (e) {
       throw AuthException.fromCode(e.code);
     } catch (e, st) {
+      final raw = e.toString();
+      // Common Android misconfiguration: missing SHA-1 / empty oauth_client.
+      if (raw.contains('ApiException: 10') ||
+          raw.contains('DEVELOPER_ERROR')) {
+        throw AuthException(
+          'Google Sign-In is not configured. Add this app\'s SHA-1 in Firebase and re-download google-services.json.',
+          code: 'google-sign-in-config',
+          cause: e,
+          stackTrace: st,
+        );
+      }
       throw AuthException(
         'Google sign-in failed. Please try again.',
         code: 'google-sign-in-failed',

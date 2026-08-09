@@ -80,7 +80,13 @@ class HiveService {
     try {
       await userBox.put(_userKey, user);
     } catch (e, st) {
-      throw CacheException('Failed to cache user.', cause: e, stackTrace: st);
+      // Fallback: store a plain Hive-safe map if typed adapter write fails
+      // (e.g. older corrupted payloads).
+      try {
+        await userBox.put(_userKey, user.toJson());
+      } catch (_) {
+        throw CacheException('Failed to cache user.', cause: e, stackTrace: st);
+      }
     }
   }
 
@@ -197,6 +203,7 @@ class UserModelAdapter extends TypeAdapter<UserModel> {
 
   @override
   void write(BinaryWriter writer, UserModel obj) {
+    // Force Hive-safe primitives (ISO date strings, no Timestamp).
     writer.writeMap(obj.toJson());
   }
 }
