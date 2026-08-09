@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_exceptions.dart';
@@ -80,23 +82,36 @@ class TreasureNotifier extends StateNotifier<TreasureState> {
     try {
       final interests = _ref.read(currentUserProvider).user?.interests ??
           const <String>[];
-      var treasure = await _repo.getDailyTreasure(
-        uid: uid,
-        lat: lat,
-        lng: lng,
-        interests: interests,
-        forceRegenerate: forceRegenerate,
-      );
+      final treasure = await _repo
+          .getDailyTreasure(
+            uid: uid,
+            lat: lat,
+            lng: lng,
+            interests: interests,
+            forceRegenerate: forceRegenerate,
+          )
+          .timeout(const Duration(seconds: 18));
+      if (!mounted) return;
       state = state.copyWith(daily: AsyncValue.data(treasure));
 
-      // Enrich asynchronously; update state again when done.
-      final enriched = await _repo.enrichTreasure(treasure);
-      if (mounted && enriched != treasure) {
-        state = state.copyWith(daily: AsyncValue.data(enriched));
-      }
+      // Enrich in the background so Home is never blocked by Gemini.
+      unawaited(() async {
+        try {
+          final enriched = await _repo
+              .enrichTreasure(treasure)
+              .timeout(const Duration(seconds: 12));
+          if (mounted && enriched != treasure) {
+            state = state.copyWith(daily: AsyncValue.data(enriched));
+          }
+        } catch (_) {
+          // Keep the already-shown treasure.
+        }
+      }());
     } on AppException catch (e, st) {
+      if (!mounted) return;
       state = state.copyWith(daily: AsyncValue.error(e, st));
     } catch (e, st) {
+      if (!mounted) return;
       state = state.copyWith(daily: AsyncValue.error(e, st));
     }
   }

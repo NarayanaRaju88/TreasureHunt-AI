@@ -64,26 +64,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _bootstrap() async {
-    await _resolveLocation();
-    if (!mounted) return;
-    // Register daily activity for streaks (best-effort).
+    // Start treasure immediately with last-known / fallback coords so Home
+    // never waits on a slow GPS lock.
+    unawaited(_loadDaily());
+    unawaited(_loadWeather());
     unawaited(ref.read(gamificationProvider.notifier).registerDailyActivity());
-    await Future.wait<void>(<Future<void>>[
-      _loadDaily(),
-      _loadWeather(),
-    ]);
+
+    final pos = await ref.read(locationServiceProvider).getLocationFast();
+    if (!mounted) return;
+    if (pos != null) {
+      final movedFar = (pos.latitude - _lat).abs() > 0.01 ||
+          (pos.longitude - _lng).abs() > 0.01;
+      _lat = pos.latitude;
+      _lng = pos.longitude;
+      if (movedFar) {
+        unawaited(_loadDaily());
+        unawaited(_loadWeather());
+      }
+    }
   }
 
   Future<void> _resolveLocation() async {
-    try {
-      // getCurrentLocation() ensures permissions internally and throws a
-      // LocationException if they are denied or the service is disabled.
-      final service = ref.read(locationServiceProvider);
-      final pos = await service.getCurrentLocation();
+    final pos = await ref.read(locationServiceProvider).getLocationFast();
+    if (pos != null) {
       _lat = pos.latitude;
       _lng = pos.longitude;
-    } catch (_) {
-      // Keep fallback coordinates.
     }
   }
 
@@ -138,13 +143,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
     final remaining = treasure!.expiresAt!.difference(DateTime.now());
-    setState(() {
-      _timeRemaining = remaining.isNegative ? Duration.zero : remaining;
-    });
+    final next = remaining.isNegative ? Duration.zero : remaining;
+    // Avoid rebuilding every tick when the visible second hasn't changed.
+    if (next.inSeconds == _timeRemaining.inSeconds) return;
+    setState(() => _timeRemaining = next);
   }
 
   Future<void> _refresh() async {
-    await _bootstrap();
+    await _resolveLocation();
+    if (!mounted) return;
+    await Future.wait<void>(<Future<void>>[
+      _loadDaily(),
+      _loadWeather(),
+    ]);
   }
 
   String get _greeting {
@@ -215,7 +226,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 10)),
               SliverToBoxAdapter(child: _QuickStats(user: user)),
-              const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              SliverToBoxAdapter(
+                child: SizedBox(height: 120 + MediaQuery.paddingOf(context).bottom),
+              ),
             ],
           ),
         ),
