@@ -12,6 +12,7 @@ import '../../../core/l10n/app_strings.dart';
 import '../../../core/providers/service_providers.dart';
 import '../../../core/routes/app_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../admin/providers/admin_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/settings_model.dart';
 import '../providers/settings_provider.dart';
@@ -243,12 +244,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
     final user = ref.watch(currentUserProvider).user;
+    final isAdmin = ref.watch(isAdminProvider).maybeWhen(
+          data: (v) => v,
+          orElse: () => false,
+        );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         padding: EdgeInsets.fromLTRB(16, 12, 16, 160 + context.padding.bottom),
         children: <Widget>[
+          if (isAdmin) ...<Widget>[
+            const _SectionHeader(
+              icon: Icons.admin_panel_settings_rounded,
+              title: 'Admin',
+            ),
+            _Card(
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(
+                  Icons.dashboard_customize_rounded,
+                  color: AppColors.primary,
+                ),
+                title: const Text('Admin Console'),
+                subtitle: const Text(
+                  'Users, login activity, and operations overview',
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => context.pushNamed(AppRoutes.admin),
+              ),
+            ),
+          ],
+
           // ---- Appearance -------------------------------------------------
           const _SectionHeader(
             icon: Icons.palette_rounded,

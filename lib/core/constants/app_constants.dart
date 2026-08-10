@@ -45,6 +45,8 @@ class AppConstants {
   static const String friendsCollection = 'friends';
   static const String feedbackCollection = 'feedback';
   static const String sessionsCollection = 'sessions';
+  static const String activityLogsCollection = 'activity_logs';
+  static const String adminsCollection = 'admins';
 
   // ---------------------------------------------------------------------------
   // Firebase Storage paths

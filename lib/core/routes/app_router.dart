@@ -6,6 +6,9 @@ import '../constants/app_constants.dart';
 import '../providers/service_providers.dart';
 import '../theme/app_colors.dart';
 
+import '../../features/admin/screens/admin_home_screen.dart';
+import '../../features/admin/screens/admin_logs_screen.dart';
+import '../../features/admin/screens/admin_users_screen.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
@@ -42,6 +45,9 @@ class AppRoutes {
   static const String discovery = 'discovery';
   static const String profile = 'profile';
   static const String settings = 'settings';
+  static const String admin = 'admin';
+  static const String adminUsers = 'admin-users';
+  static const String adminLogs = 'admin-logs';
 
   // -------------------------------------------------------------------------
   // Route paths
@@ -60,6 +66,9 @@ class AppRoutes {
   static const String discoveryPath = '/discovery';
   static const String profilePath = '/profile';
   static const String settingsPath = '/settings';
+  static const String adminPath = '/admin';
+  static const String adminUsersPath = '/admin/users';
+  static const String adminLogsPath = '/admin/logs';
 }
 
 /// ---------------------------------------------------------------------------
@@ -309,6 +318,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             const DiscoveryScreen(),
           );
         },
+      ),
+
+      /// Admin console (claim / admins/{uid} gated in UI).
+      GoRoute(
+        name: AppRoutes.admin,
+        path: AppRoutes.adminPath,
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) {
+          return _slide(state, const AdminHomeScreen());
+        },
+        routes: <RouteBase>[
+          GoRoute(
+            name: AppRoutes.adminUsers,
+            path: 'users',
+            pageBuilder: (context, state) {
+              return _slide(state, const AdminUsersScreen());
+            },
+          ),
+          GoRoute(
+            name: AppRoutes.adminLogs,
+            path: 'logs',
+            pageBuilder: (context, state) {
+              return _slide(state, const AdminLogsScreen());
+            },
+          ),
+        ],
       ),
 
       // =====================================================================
