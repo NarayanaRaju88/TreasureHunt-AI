@@ -6,6 +6,7 @@ import '../../../core/errors/app_exceptions.dart';
 import '../../../core/providers/service_providers.dart';
 import '../../../domain/models/user_model.dart';
 import '../../../domain/repositories/auth_repository.dart';
+import '../../admin/providers/activity_logger.dart';
 
 /// Streams the currently authenticated user.
 ///
@@ -63,7 +64,7 @@ class AuthState {
 
 /// Manages authentication actions and exposes [AuthState].
 class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier(this._repo)
+  AuthNotifier(this._repo, this._ref)
       : super(
           AuthState(
             user: _repo.currentUser,
@@ -71,6 +72,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
 
   final AuthRepository _repo;
+  final Ref _ref;
 
   /// Updates the state when the authentication stream changes.
   void setUser(UserModel? user) {
@@ -100,6 +102,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         email,
         password,
       ),
+      activityAction: 'login_email',
     );
   }
 
@@ -107,6 +110,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> loginWithGoogle() {
     return _run(
       () => _repo.signInWithGoogle(),
+      activityAction: 'login_google',
     );
   }
 
@@ -122,6 +126,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         password,
         displayName: displayName,
       ),
+      activityAction: 'register',
     );
   }
 
@@ -135,6 +140,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
               code: 'guest-timeout',
             ),
           ),
+      activityAction: 'login_guest',
     );
   }
 
@@ -145,7 +151,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
       clearError: true,
     );
 
+    final user = state.user;
+
     try {
+      if (user != null) {
+        await logUserActivity(
+          _ref,
+          user: user,
+          action: 'logout',
+        );
+      }
+
       await _repo.signOut();
 
       state = const AuthState();
@@ -242,8 +258,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Executes an authentication action and maps errors to [AuthState].
   Future<bool> _run(
-    Future<UserModel> Function() action,
-  ) async {
+    Future<UserModel> Function() action, {
+    String? activityAction,
+  }) async {
     state = state.copyWith(
       isLoading: true,
       clearError: true,
@@ -264,6 +281,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
           (_) {},
         ),
       );
+
+      if (activityAction != null) {
+        unawaited(
+          logUserActivity(
+            _ref,
+            user: user,
+            action: activityAction,
+          ),
+        );
+      }
 
       return true;
     } on AppException catch (e) {
@@ -289,7 +316,7 @@ final currentUserProvider =
     StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final repo = ref.watch(authRepositoryProvider);
 
-  final notifier = AuthNotifier(repo);
+  final notifier = AuthNotifier(repo, ref);
 
   /// Keep the notifier synchronized with Firebase auth state.
   ref.listen<AsyncValue<UserModel?>>(

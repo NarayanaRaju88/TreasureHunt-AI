@@ -6,7 +6,25 @@ import '../../features/gamification/models/achievement_model.dart';
 import '../../features/treasure/models/daily_challenge_model.dart';
 import '../../features/treasure/models/treasure_history_model.dart';
 import '../../features/treasure/models/treasure_model.dart';
+import '../../domain/models/activity_log_model.dart';
 import '../../domain/models/user_model.dart';
+
+/// Lightweight dashboard counters for the admin console.
+class AdminStats {
+  const AdminStats({
+    required this.userCount,
+    required this.guestCount,
+    required this.activeToday,
+    required this.loginsToday,
+    required this.treasureCount,
+  });
+
+  final int userCount;
+  final int guestCount;
+  final int activeToday;
+  final int loginsToday;
+  final int treasureCount;
+}
 
 /// Centralized Firestore data access for the app.
 ///
@@ -314,6 +332,136 @@ class FirestoreService {
         .snapshots()
         .map((snap) =>
             snap.docs.map(TreasureHistoryModel.fromFirestore).toList());
+  }
+
+  // ===========================================================================
+  // Admin / activity logs
+  // ===========================================================================
+
+  CollectionReference<Map<String, dynamic>> get _activityLogs =>
+      _db.collection(AppConstants.activityLogsCollection);
+
+  CollectionReference<Map<String, dynamic>> get _admins =>
+      _db.collection(AppConstants.adminsCollection);
+
+  /// Whether [uid] has an admin bootstrap document.
+  Future<bool> isAdminDoc(String uid) async {
+    try {
+      final doc = await _admins.doc(uid).get();
+      return doc.exists;
+    } on FirebaseException catch (e, st) {
+      throw _mapFirestore(e, st, 'Failed to check admin status.');
+    }
+  }
+
+  /// Appends an activity / login audit event (caller must be the same user).
+  Future<void> logActivity({
+    required UserModel user,
+    required String action,
+    String? platform,
+    Map<String, dynamic>? details,
+  }) async {
+    try {
+      await _activityLogs.add(<String, dynamic>{
+        'userId': user.uid,
+        'email': user.email,
+        'displayName': user.displayName,
+        'action': action,
+        'createdAt': FieldValue.serverTimestamp(),
+        'isGuest': user.isGuest,
+        if (platform != null) 'platform': platform,
+        if (details != null) 'details': details,
+      });
+    } on FirebaseException catch (e, st) {
+      throw _mapFirestore(e, st, 'Failed to write activity log.');
+    }
+  }
+
+  /// Recent activity logs (admin only).
+  Future<List<ActivityLogModel>> getActivityLogs({int limit = 100}) async {
+    try {
+      final snap = await _activityLogs
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .get();
+      return snap.docs.map(ActivityLogModel.fromDoc).toList();
+    } on FirebaseException catch (e, st) {
+      throw _mapFirestore(e, st, 'Failed to load activity logs.');
+    }
+  }
+
+  /// Stream of recent activity logs (admin only).
+  Stream<List<ActivityLogModel>> streamActivityLogs({int limit = 80}) {
+    return _activityLogs
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map(
+          (snap) => snap.docs.map(ActivityLogModel.fromDoc).toList(),
+        )
+        .handleError((Object e, StackTrace st) {
+      throw _mapFirestore(e, st, 'Failed to stream activity logs.');
+    });
+  }
+
+  /// Lists users for the admin console (admin only).
+  Future<List<UserModel>> listUsers({int limit = 100}) async {
+    try {
+      final snap = await _users
+          .orderBy('lastActiveDate', descending: true)
+          .limit(limit)
+          .get();
+      return snap.docs.map(UserModel.fromFirestore).toList();
+    } on FirebaseException {
+      // Fallback if lastActiveDate index/order fails on older docs.
+      try {
+        final snap = await _users.limit(limit).get();
+        final users = snap.docs.map(UserModel.fromFirestore).toList()
+          ..sort((a, b) => b.lastActive.compareTo(a.lastActive));
+        return users;
+      } on FirebaseException catch (e2, st2) {
+        throw _mapFirestore(e2, st2, 'Failed to list users.');
+      }
+    }
+  }
+
+  /// Aggregate counts for the admin dashboard.
+  Future<AdminStats> getAdminStats() async {
+    try {
+      final usersSnap = await _users.limit(500).get();
+      final logsSnap = await _activityLogs.limit(500).get();
+      final treasuresSnap = await _treasures.limit(500).get();
+
+      var guests = 0;
+      var activeToday = 0;
+      final today = DateTime.now();
+      final start = DateTime(today.year, today.month, today.day);
+
+      for (final doc in usersSnap.docs) {
+        final user = UserModel.fromFirestore(doc);
+        if (user.isGuest) guests++;
+        if (!user.lastActive.isBefore(start)) activeToday++;
+      }
+
+      var loginsToday = 0;
+      for (final doc in logsSnap.docs) {
+        final log = ActivityLogModel.fromDoc(doc);
+        if (log.createdAt.isBefore(start)) continue;
+        if (log.action.startsWith('login') || log.action == 'register') {
+          loginsToday++;
+        }
+      }
+
+      return AdminStats(
+        userCount: usersSnap.size,
+        guestCount: guests,
+        activeToday: activeToday,
+        loginsToday: loginsToday,
+        treasureCount: treasuresSnap.size,
+      );
+    } on FirebaseException catch (e, st) {
+      throw _mapFirestore(e, st, 'Failed to load admin stats.');
+    }
   }
 
   // ===========================================================================

@@ -195,5 +195,6 @@ _Replace `_` with your project ID, or just navigate from the console sidebar._
 | `Default FirebaseApp is not initialized` | `google-services.json` missing or in the wrong folder. Must be `android/app/google-services.json`. |
 | Google Sign-In fails silently / `ApiException: 10` | SHA-1 not registered, or `google-services.json` outdated. Add SHA-1 in Project settings, re-download the JSON. |
 | `PERMISSION_DENIED` from Firestore | Security rules not deployed or user not authenticated. Deploy `firestore.rules` and ensure the user is signed in. |
+| Need Admin Console access | Create `admins/{uid}` in Firestore or set custom claim `admin: true`. See [`ADMIN_SETUP.md`](./ADMIN_SETUP.md). |
 | Storage upload fails with permission error | Storage rules not deployed, or path doesn't match the allowed paths. Deploy `firebase_storage.rules`. |
 | Package name mismatch | The Firebase app package must equal your build `applicationId`. See the note in Step 2. |

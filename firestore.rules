@@ -12,10 +12,12 @@ rules_version = '2';
 //   dailyChallenges/{id}            -> read-only for signed-in users
 //   leaderboard/{id}                -> public-read (signed-in), admin-write
 //
-// Admin access is granted via a custom auth claim: `request.auth.token.admin`.
-// Set it from a trusted backend using the Admin SDK:
+// Admin access is granted via:
+//   1) custom auth claim `request.auth.token.admin == true`, or
+//   2) bootstrap document `admins/{uid}` created in Firebase Console.
+// Set the claim from a trusted backend using the Admin SDK:
 //   admin.auth().setCustomUserClaims(uid, { admin: true })
-//
+// See docs/ADMIN_SETUP.md.//
 // NOTE ON RATE LIMITING:
 //   Firestore rules cannot enforce request-rate limits directly. Abuse
 //   protection (per-user write throttling, burst limits, quota) must be
@@ -38,8 +40,10 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn()
-        && request.auth.token.admin == true;
+      return isSignedIn() && (
+        request.auth.token.admin == true ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
     }
 
     // Basic shape validation for user documents (defense in depth).
@@ -155,6 +159,27 @@ service cloud.firestore {
     match /leaderboard/{entryId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // Admins — bootstrap by creating admins/{uid} in Firebase Console.
+    // Custom claim admin:true also works. Clients cannot self-promote.
+    // -------------------------------------------------------------------------
+    match /admins/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // Activity logs — users may append their own events; only admins read all.
+    // -------------------------------------------------------------------------
+    match /activity_logs/{logId} {
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll([
+          'userId', 'email', 'displayName', 'action', 'createdAt'
+        ]);
+      allow read, update, delete: if isAdmin();
     }
 
     // -------------------------------------------------------------------------
