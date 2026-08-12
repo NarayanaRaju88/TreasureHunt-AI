@@ -114,8 +114,9 @@ class _TreasureRouteMiniMapState extends ConsumerState<TreasureRouteMiniMap> {
   }
 
   void _openFullMap() {
-    if (context.canPop) {
-      context.pop();
+    final router = GoRouter.of(context);
+    if (router.canPop()) {
+      router.pop();
     }
     context.goNamed(AppRoutes.map);
   }

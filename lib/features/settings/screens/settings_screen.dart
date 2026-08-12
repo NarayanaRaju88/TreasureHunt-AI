@@ -358,7 +358,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           _Card(
             child: DropdownButtonFormField<String>(
-              value: settings.language,
+              key: ValueKey<String>('settings-lang-${settings.language}'),
+              initialValue: settings.language,
               isExpanded: true,
               decoration: InputDecoration(
                 isDense: true,
