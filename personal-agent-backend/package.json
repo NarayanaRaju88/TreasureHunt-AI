@@ -1,0 +1,16 @@
+{
+  "name": "personal-agent-backend",
+  "version": "0.1.0",
+  "description": "Backend brain for personal AI agent - Claude tool-use + Gmail/Calendar",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "googleapis": "^140.0.0",
+    "dotenv": "^16.4.5"
+  }
+}
