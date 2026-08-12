@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/errors/app_exceptions.dart';
 import '../../../core/extensions/context_extensions.dart';
@@ -666,30 +667,63 @@ class _NearbySection extends StatelessWidget {
             itemCount: places.length,
             separatorBuilder: (_, __) => const SizedBox(width: 10),
             itemBuilder: (context, i) {
-              return Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.secondary.withValues(alpha: 0.1),
+              final place = places[i];
+              return Material(
+                color: Colors.transparent,
+                child: InkWell(
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: AppColors.secondary.withValues(alpha: 0.28),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    const Icon(Icons.near_me_rounded,
-                        size: 16, color: AppColors.secondary),
-                    const SizedBox(width: 6),
-                    Text(
-                      places[i],
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
+                  onTap: () async {
+                    final uri = Uri.parse(
+                      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(place)}',
+                    );
+                    try {
+                      final ok = await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
+                      if (!ok && context.mounted) {
+                        context.showSnackBar(
+                          'Could not open Maps',
+                          isError: true,
+                        );
+                      }
+                    } catch (_) {
+                      if (context.mounted) {
+                        context.showSnackBar(
+                          'Could not open Maps',
+                          isError: true,
+                        );
+                      }
+                    }
+                  },
+                  child: Ink(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: AppColors.secondary.withValues(alpha: 0.28),
                       ),
                     ),
-                  ],
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        const Icon(Icons.near_me_rounded,
+                            size: 16, color: AppColors.secondary),
+                        const SizedBox(width: 6),
+                        Text(
+                          place,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               );
             },

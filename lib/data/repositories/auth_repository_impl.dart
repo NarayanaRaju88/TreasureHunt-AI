@@ -43,29 +43,40 @@ class AuthRepositoryImpl implements AuthRepository {
         return null;
       }
 
-      // Never block app startup/navigation on slow Firestore.
+      // Prefer cached profile instantly; refresh Firestore in background.
+      final cached = _hive.getUser();
+      if (cached != null && cached.uid == firebaseUser.uid) {
+        _cachedUser = cached;
+        unawaited(() async {
+          try {
+            final fresh = await _resolveUser(firebaseUser)
+                .timeout(const Duration(seconds: 5));
+            _cachedUser = fresh;
+            try {
+              await _hive.saveUser(fresh);
+            } catch (_) {}
+          } catch (_) {}
+        }());
+        return cached;
+      }
+
       UserModel user;
       try {
         user = await _resolveUser(firebaseUser)
-            .timeout(const Duration(seconds: 6));
+            .timeout(const Duration(seconds: 4));
       } catch (_) {
-        final cached = _hive.getUser();
-        if (cached != null && cached.uid == firebaseUser.uid) {
-          user = cached;
-        } else {
-          final now = DateTime.now();
-          user = UserModel(
-            uid: firebaseUser.uid,
-            email: firebaseUser.email ?? '',
-            displayName:
-                firebaseUser.displayName ??
-                (firebaseUser.isAnonymous ? 'Guest Explorer' : 'Explorer'),
-            photoUrl: firebaseUser.photoURL,
-            isGuest: firebaseUser.isAnonymous,
-            createdAt: now,
-            lastActive: now,
-          );
-        }
+        final now = DateTime.now();
+        user = UserModel(
+          uid: firebaseUser.uid,
+          email: firebaseUser.email ?? '',
+          displayName:
+              firebaseUser.displayName ??
+              (firebaseUser.isAnonymous ? 'Guest Explorer' : 'Explorer'),
+          photoUrl: firebaseUser.photoURL,
+          isGuest: firebaseUser.isAnonymous,
+          createdAt: now,
+          lastActive: now,
+        );
       }
 
       _cachedUser = user;
@@ -325,12 +336,53 @@ class AuthRepositoryImpl implements AuthRepository {
     fb.User firebaseUser, {
     String? fallbackName,
   }) async {
-    final model = await _resolveUser(
-      firebaseUser,
-      fallbackName: fallbackName,
+    // Return a usable profile immediately so login feels instant.
+    // Firestore sync continues in the background.
+    final cached = _hive.getUser();
+    if (cached != null && cached.uid == firebaseUser.uid) {
+      final updated = cached.copyWith(lastActive: DateTime.now());
+      unawaited(_syncProfileInBackground(firebaseUser, fallbackName: fallbackName));
+      return _finalize(updated);
+    }
+
+    final now = DateTime.now();
+    final local = UserModel(
+      uid: firebaseUser.uid,
+      email: firebaseUser.email ?? '',
+      displayName:
+          fallbackName ??
+          firebaseUser.displayName ??
+          (firebaseUser.isAnonymous ? 'Guest Explorer' : 'Explorer'),
+      photoUrl: firebaseUser.photoURL,
+      xp: 0,
+      level: 1,
+      interests: const [],
+      badges: const [],
+      totalDiscoveries: 0,
+      totalWalkingDistance: 0,
+      isGuest: firebaseUser.isAnonymous,
+      fcmToken: null,
+      createdAt: now,
+      lastActive: now,
     );
 
-    return _finalize(model);
+    unawaited(_syncProfileInBackground(firebaseUser, fallbackName: fallbackName));
+    return _finalize(local);
+  }
+
+  Future<void> _syncProfileInBackground(
+    fb.User firebaseUser, {
+    String? fallbackName,
+  }) async {
+    try {
+      final model = await _resolveUser(
+        firebaseUser,
+        fallbackName: fallbackName,
+      ).timeout(const Duration(seconds: 8));
+      await _finalize(model);
+    } catch (_) {
+      // Background sync must never affect the signed-in session.
+    }
   }
 
   Future<UserModel> _resolveUser(
@@ -340,7 +392,7 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final remote = await _firestore
           .getUser(firebaseUser.uid)
-          .timeout(const Duration(seconds: 12));
+          .timeout(const Duration(seconds: 5));
 
       if (remote != null) {
         final updated = remote.copyWith(
@@ -348,11 +400,13 @@ class AuthRepositoryImpl implements AuthRepository {
         );
 
         try {
-          await _firestore.updateUser(
-            updated.uid,
-            {
-              'lastActiveDate': Timestamp.fromDate(updated.lastActive),
-            },
+          unawaited(
+            _firestore.updateUser(
+              updated.uid,
+              {
+                'lastActiveDate': Timestamp.fromDate(updated.lastActive),
+              },
+            ),
           );
         } catch (_) {}
 
@@ -396,7 +450,7 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       await _firestore
           .createUser(model)
-          .timeout(const Duration(seconds: 12));
+          .timeout(const Duration(seconds: 8));
     } catch (_) {
       // Ignore when offline or rules reject — local auth still works.
     }

@@ -24,14 +24,29 @@ class MainShell extends StatelessWidget {
     return 0; // Home (default)
   }
 
+  bool _isHome(String location) =>
+      location == AppRoutes.homePath || location.startsWith('${AppRoutes.homePath}/');
+
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
-    return Scaffold(
-      extendBody: true,
-      body: child,
-      bottomNavigationBar: AppBottomNav(
-        currentIndex: _indexForLocation(location),
+    final canPop = GoRouter.of(context).canPop();
+    final onHome = _isHome(location);
+
+    // Tab routes often have no stack. System back should return to Home
+    // instead of exiting the app (exit only from Home when nothing to pop).
+    return PopScope(
+      canPop: canPop || onHome,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        context.goNamed(AppRoutes.home);
+      },
+      child: Scaffold(
+        extendBody: true,
+        body: child,
+        bottomNavigationBar: AppBottomNav(
+          currentIndex: _indexForLocation(location),
+        ),
       ),
     );
   }

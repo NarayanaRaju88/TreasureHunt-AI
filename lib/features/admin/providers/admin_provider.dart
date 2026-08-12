@@ -18,7 +18,7 @@ final isAdminProvider = FutureProvider<bool>((ref) async {
     final firebaseUser = FirebaseAuth.instance.currentUser;
     if (firebaseUser == null) return false;
 
-    final token = await firebaseUser.getIdTokenResult(true);
+    final token = await firebaseUser.getIdTokenResult();
     if (token.claims?['admin'] == true) return true;
 
     return ref.read(firestoreServiceProvider).isAdminDoc(user.uid);

@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/l10n/app_languages.dart';
 import '../../../core/l10n/app_strings.dart';
+import '../../../core/navigation/app_nav.dart';
 import '../../../core/providers/service_providers.dart';
 import '../../../core/routes/app_router.dart';
 import '../../../core/theme/app_colors.dart';
@@ -99,45 +100,54 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider).user;
 
-    return Scaffold(
-      extendBody: true,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: <Widget>[
-          SliverAppBar(
-            pinned: true,
-            expandedHeight: 260,
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            title: const Text('Profile'),
-            flexibleSpace: FlexibleSpaceBar(
-              background: _ProfileHeader(
-                user: user,
-                uploadingPhoto: _uploadingPhoto,
-                onChangePhoto: _changePhoto,
+    return PopScope(
+      canPop: context.routerCanPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.goBackOr();
+      },
+      child: Scaffold(
+        extendBody: true,
+        body: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: <Widget>[
+            SliverAppBar(
+              pinned: true,
+              expandedHeight: 260,
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              leading: context.backOrHomeLeading(color: Colors.white),
+              title: const Text('Profile'),
+              flexibleSpace: FlexibleSpaceBar(
+                background: _ProfileHeader(
+                  user: user,
+                  uploadingPhoto: _uploadingPhoto,
+                  onChangePhoto: _changePhoto,
+                ),
               ),
             ),
-          ),
-          SliverToBoxAdapter(child: _LevelCard(user: user)),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          const SliverToBoxAdapter(child: _LanguageCard()),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-          SliverToBoxAdapter(child: _StatsGrid(user: user)),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-          const SliverToBoxAdapter(
-            child: _SectionTitle(title: 'Achievements', icon: Icons.emoji_events_rounded),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 12)),
-          const SliverToBoxAdapter(child: _AchievementsRow()),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-          const SliverToBoxAdapter(
-            child: _SectionTitle(title: 'Recent Discoveries', icon: Icons.history_rounded),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 8)),
-          const _RecentDiscoveries(),
-          SliverToBoxAdapter(child: _LogoutButton(onLogout: _logout)),
-          const SliverToBoxAdapter(child: SizedBox(height: 120)),
-        ],
+            SliverToBoxAdapter(child: _LevelCard(user: user)),
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            const SliverToBoxAdapter(child: _LanguageCard()),
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            SliverToBoxAdapter(child: _StatsGrid(user: user)),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            const SliverToBoxAdapter(
+              child: _SectionTitle(
+                  title: 'Achievements', icon: Icons.emoji_events_rounded),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            const SliverToBoxAdapter(child: _AchievementsRow()),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            const SliverToBoxAdapter(
+              child: _SectionTitle(
+                  title: 'Recent Discoveries', icon: Icons.history_rounded),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
+            const _RecentDiscoveries(),
+            SliverToBoxAdapter(child: _LogoutButton(onLogout: _logout)),
+            const SliverToBoxAdapter(child: SizedBox(height: 120)),
+          ],
+        ),
       ),
     );
   }
@@ -383,81 +393,58 @@ class _LanguageCard extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: GlassmorphicContainer(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: ListTile(
-          leading: const Icon(Icons.language_rounded, color: AppColors.primary),
-          title: Text(strings.t('language')),
-          subtitle: Text(current.label),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => _showLanguagePicker(context, ref),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showLanguagePicker(BuildContext context, WidgetRef ref) async {
-    final selected = ref.read(settingsProvider).language;
-    final strings = ref.read(appStringsProvider);
-    await showModalBottomSheet<void>(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) {
-        final bottomInset = MediaQuery.paddingOf(context).bottom;
-        return SafeArea(
-          child: Padding(
-            padding: EdgeInsets.only(bottom: bottomInset),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.sizeOf(context).height * 0.7,
-              ),
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: kSupportedAppLanguages.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final lang = kSupportedAppLanguages[index];
-                  final isSelected = lang.code == selected;
-                  return ListTile(
-                    leading: CircleAvatar(
-                      radius: 16,
-                      backgroundColor: isSelected
-                          ? AppColors.primary
-                          : context.colors.surfaceContainerHighest,
-                      child: Text(
-                        lang.code.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: isSelected
-                              ? Colors.white
-                              : context.colors.onSurface,
-                        ),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Row(
+          children: <Widget>[
+            const Icon(Icons.language_rounded, color: AppColors.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    strings.t('language'),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: current.code,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    title: Text(lang.label),
-                    trailing: isSelected
-                        ? const Icon(Icons.check_rounded,
-                            color: AppColors.primary)
-                        : null,
-                    onTap: () async {
+                    items: <DropdownMenuItem<String>>[
+                      for (final lang in kSupportedAppLanguages)
+                        DropdownMenuItem<String>(
+                          value: lang.code,
+                          child: Text(lang.label),
+                        ),
+                    ],
+                    onChanged: (code) async {
+                      if (code == null || code == settings.language) return;
+                      final lang = appLanguageByCode(code);
                       await ref
                           .read(settingsProvider.notifier)
-                          .setLanguage(lang.code);
-                      if (!context.mounted) return;
-                      Navigator.pop(context);
+                          .setLanguage(code);
+                      if (!context.mounted || lang == null) return;
                       context.showSnackBar(
                         '${strings.t('language_updated')}: ${lang.label}',
                       );
                     },
-                  );
-                },
+                  ),
+                ],
               ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 }
