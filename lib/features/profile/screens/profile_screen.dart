@@ -408,7 +408,8 @@ class _LanguageCard extends ConsumerWidget {
                   ),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
-                    value: current.code,
+                    key: ValueKey<String>('profile-lang-${current.code}'),
+                    initialValue: current.code,
                     isExpanded: true,
                     decoration: InputDecoration(
                       isDense: true,
