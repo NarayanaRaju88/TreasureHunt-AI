@@ -359,7 +359,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
           if (treasure != null && !_loadingLocation && _locationError == null)
             const Align(
               alignment: Alignment(0, -0.15),
-              child: _BouncingTreasurePin(),
+              child: IgnorePointer(
+                child: _BouncingTreasurePin(),
+              ),
             ),
 
           // ---- Floating action buttons -------------------------------------

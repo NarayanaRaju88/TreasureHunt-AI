@@ -99,9 +99,25 @@ class _TreasureRouteMiniMapState extends ConsumerState<TreasureRouteMiniMap> {
           ? 'https://www.google.com/maps/dir/?api=1&destination=$dest&travelmode=walking'
           : 'https://www.google.com/maps/dir/?api=1&origin=$origin&destination=$dest&travelmode=walking',
     );
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    try {
+      final can = await canLaunchUrl(uri);
+      final ok = can &&
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && mounted) {
+        context.showSnackBar('Could not open navigation', isError: true);
+      }
+    } catch (_) {
+      if (mounted) {
+        context.showSnackBar('Could not open navigation', isError: true);
+      }
     }
+  }
+
+  void _openFullMap() {
+    if (context.canPop) {
+      context.pop();
+    }
+    context.goNamed(AppRoutes.map);
   }
 
   @override
@@ -162,9 +178,7 @@ class _TreasureRouteMiniMapState extends ConsumerState<TreasureRouteMiniMap> {
                     child: Center(child: CircularProgressIndicator()),
                   )
                 : AppConstants.googleMapsApiKey.isEmpty
-                    ? _MissingMapsKey(onOpenFullMap: () {
-                        context.goNamed(AppRoutes.map);
-                      })
+                    ? _MissingMapsKey(onOpenFullMap: _openFullMap)
                     : GoogleMap(
                         initialCameraPosition: CameraPosition(
                           target: treasurePos,
@@ -233,7 +247,7 @@ class _TreasureRouteMiniMapState extends ConsumerState<TreasureRouteMiniMap> {
           children: <Widget>[
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () => context.goNamed(AppRoutes.map),
+                onPressed: _openFullMap,
                 icon: const Icon(Icons.map_rounded),
                 label: Text(strings.t('open_full_map')),
               ),

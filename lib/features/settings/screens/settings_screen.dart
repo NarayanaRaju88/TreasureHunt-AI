@@ -9,6 +9,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/l10n/app_languages.dart';
 import '../../../core/l10n/app_strings.dart';
+import '../../../core/navigation/app_nav.dart';
 import '../../../core/providers/service_providers.dart';
 import '../../../core/routes/app_router.dart';
 import '../../../core/theme/app_colors.dart';
@@ -249,38 +250,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           orElse: () => false,
         );
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(16, 12, 16, 160 + context.padding.bottom),
-        children: <Widget>[
-          if (isAdmin) ...<Widget>[
-            const _SectionHeader(
-              icon: Icons.admin_panel_settings_rounded,
-              title: 'Admin',
-            ),
-            _Card(
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(
-                  Icons.dashboard_customize_rounded,
-                  color: AppColors.primary,
-                ),
-                title: const Text('Admin Console'),
-                subtitle: const Text(
-                  'Users, login activity, and operations overview',
-                ),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => context.pushNamed(AppRoutes.admin),
+    return PopScope(
+      canPop: context.routerCanPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.goBackOr();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: context.backOrHomeLeading(),
+          title: const Text('Settings'),
+        ),
+        body: ListView(
+          padding:
+              EdgeInsets.fromLTRB(16, 12, 16, 160 + context.padding.bottom),
+          children: <Widget>[
+            if (isAdmin) ...<Widget>[
+              const _SectionHeader(
+                icon: Icons.admin_panel_settings_rounded,
+                title: 'Admin',
               ),
-            ),
-          ],
+              _Card(
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.dashboard_customize_rounded,
+                    color: AppColors.primary,
+                  ),
+                  title: const Text('Admin Console'),
+                  subtitle: const Text(
+                    'Users, login activity, and operations overview',
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.pushNamed(AppRoutes.admin),
+                ),
+              ),
+            ],
 
-          // ---- Appearance -------------------------------------------------
-          const _SectionHeader(
-            icon: Icons.palette_rounded,
-            title: 'Appearance',
-          ),
+            // ---- Appearance -------------------------------------------------
+            const _SectionHeader(
+              icon: Icons.palette_rounded,
+              title: 'Appearance',
+            ),
           _Card(
             child: _ThemeSelector(
               value: settings.themeMode,
@@ -347,29 +357,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             title: ref.watch(appStringsProvider).t('language'),
           ),
           _Card(
-            child: Column(
-              children: <Widget>[
-                for (var i = 0; i < kSupportedAppLanguages.length; i++) ...<Widget>[
-                  if (i > 0) const Divider(height: 1),
-                  _LanguageTile(
-                    label: kSupportedAppLanguages[i].label,
-                    code: kSupportedAppLanguages[i].code,
-                    selected:
-                        settings.language == kSupportedAppLanguages[i].code,
-                    onTap: () async {
-                      final lang = kSupportedAppLanguages[i];
-                      await ref
-                          .read(settingsProvider.notifier)
-                          .setLanguage(lang.code);
-                      if (!context.mounted) return;
-                      final strings = ref.read(appStringsProvider);
-                      context.showSnackBar(
-                        '${strings.t('language_updated')}: ${lang.label}',
-                      );
-                    },
+            child: DropdownButtonFormField<String>(
+              value: settings.language,
+              isExpanded: true,
+              decoration: InputDecoration(
+                isDense: true,
+                prefixIcon: const Icon(Icons.translate_rounded),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              items: <DropdownMenuItem<String>>[
+                for (final lang in kSupportedAppLanguages)
+                  DropdownMenuItem<String>(
+                    value: lang.code,
+                    child: Text(lang.label),
                   ),
-                ],
               ],
+              onChanged: (code) async {
+                if (code == null || code == settings.language) return;
+                final lang = appLanguageByCode(code);
+                await ref.read(settingsProvider.notifier).setLanguage(code);
+                if (!context.mounted || lang == null) return;
+                final strings = ref.read(appStringsProvider);
+                context.showSnackBar(
+                  '${strings.t('language_updated')}: ${lang.label}',
+                );
+              },
             ),
           ),
 
@@ -504,6 +522,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ],
       ),
+      ),
     );
   }
 }
@@ -599,49 +618,6 @@ class _ThemeOption extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-// =============================================================================
-// Language tile
-// =============================================================================
-class _LanguageTile extends StatelessWidget {
-  const _LanguageTile({
-    required this.label,
-    required this.code,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final String code;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      onTap: onTap,
-      leading: CircleAvatar(
-        radius: 16,
-        backgroundColor: selected
-            ? AppColors.primary
-            : context.colors.surfaceContainerHighest,
-        child: Text(
-          code.toUpperCase(),
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: selected ? Colors.white : context.colors.onSurfaceVariant,
-          ),
-        ),
-      ),
-      title: Text(label),
-      trailing: selected
-          ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
-          : const Icon(Icons.radio_button_unchecked_rounded),
     );
   }
 }

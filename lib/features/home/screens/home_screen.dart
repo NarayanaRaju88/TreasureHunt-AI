@@ -364,35 +364,48 @@ class _TopBar extends StatelessWidget {
       child: Row(
         children: <Widget>[
           GestureDetector(
-            onTap: () => context.goNamed(AppRoutes.profile),
+            onTap: () => context.pushNamed(AppRoutes.profile),
             child: _Avatar(user: user, radius: 24),
           ),
           const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              gradient: AppColors.accentGradient,
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
               borderRadius: BorderRadius.circular(999),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                const Icon(Icons.military_tech_rounded,
-                    size: 16, color: AppColors.onAccent),
-                const SizedBox(width: 4),
-                Text(
-                  'Lvl ${user?.level ?? 1}',
-                  style: const TextStyle(
-                    color: AppColors.onAccent,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                  ),
+              onTap: () => showLevelBenefitsSheet(
+                context,
+                currentLevel: user?.level ?? 1,
+              ),
+              child: Ink(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: AppColors.accentGradient,
+                  borderRadius: BorderRadius.circular(999),
                 ),
-              ],
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    const Icon(Icons.military_tech_rounded,
+                        size: 16, color: AppColors.onAccent),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Lvl ${user?.level ?? 1}',
+                      style: const TextStyle(
+                        color: AppColors.onAccent,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           const Spacer(),
-          _NotificationBell(onTap: () => context.goNamed(AppRoutes.settings)),
+          _NotificationBell(
+            onTap: () => context.pushNamed(AppRoutes.settings),
+          ),
         ],
       ),
     );
@@ -546,7 +559,11 @@ class _ProgressSection extends ConsumerWidget {
                     ),
                   ],
                 ),
-                AnimatedStreakBadge(streak: streak, compact: true),
+                AnimatedStreakBadge(
+                  streak: streak,
+                  compact: true,
+                  onTap: () => context.pushNamed(AppRoutes.profile),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -643,6 +660,7 @@ class _DailyGoalsCard extends ConsumerWidget {
               subtitle: streak > 0
                   ? 'Day $streak · +${AppConstants.xpDailyLogin} XP earned'
                   : 'Visit daily to keep your streak alive',
+              onTap: () => context.pushNamed(AppRoutes.profile),
             ),
             const SizedBox(height: 8),
             _GoalRow(
@@ -651,12 +669,25 @@ class _DailyGoalsCard extends ConsumerWidget {
               subtitle: collectedToday
                   ? 'Nice! Mystery box already opened'
                   : 'Walk to a pin and collect for XP + mystery box',
+              onTap: collectedToday
+                  ? null
+                  : () {
+                      if (daily != null) {
+                        context.pushNamed(
+                          AppRoutes.discovery,
+                          extra: daily,
+                        );
+                      } else {
+                        context.pushNamed(AppRoutes.map);
+                      }
+                    },
             ),
             const SizedBox(height: 8),
             _GoalRow(
               done: discoveries > 0,
               title: 'Grow your explorer journal',
               subtitle: '$discoveries discoveries so far',
+              onTap: () => context.pushNamed(AppRoutes.profile),
             ),
           ],
         ),
@@ -670,15 +701,17 @@ class _GoalRow extends StatelessWidget {
     required this.done,
     required this.title,
     required this.subtitle,
+    this.onTap,
   });
 
   final bool done;
   final String title;
   final String subtitle;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final row = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Icon(
@@ -707,7 +740,22 @@ class _GoalRow extends StatelessWidget {
             ],
           ),
         ),
+        if (onTap != null && !done)
+          Icon(
+            Icons.chevron_right_rounded,
+            color: context.colors.onSurface.withValues(alpha: 0.45),
+          ),
       ],
+    );
+
+    if (onTap == null) return row;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: row,
+      ),
     );
   }
 }
@@ -830,13 +878,27 @@ class _NearbyOffers extends StatelessWidget {
   final VoidCallback onRetry;
   final ValueChanged<TreasureModel> onTap;
 
-  Future<void> _openDirections(TreasureModel treasure) async {
+  Future<void> _openDirections(
+    BuildContext context,
+    TreasureModel treasure,
+  ) async {
     final uri = Uri.parse(
       'https://www.google.com/maps/dir/?api=1'
       '&destination=${treasure.lat},${treasure.lng}'
       '&travelmode=walking',
     );
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    try {
+      final can = await canLaunchUrl(uri);
+      final ok = can &&
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && context.mounted) {
+        context.showSnackBar('Could not open navigation', isError: true);
+      }
+    } catch (_) {
+      if (context.mounted) {
+        context.showSnackBar('Could not open navigation', isError: true);
+      }
+    }
   }
 
   @override
@@ -872,7 +934,7 @@ class _NearbyOffers extends StatelessWidget {
             _NearbyOfferTile(
               treasure: visible[i],
               onOpen: () => onTap(visible[i]),
-              onDirections: () => _openDirections(visible[i]),
+              onDirections: () => _openDirections(context, visible[i]),
             ),
           ],
         ],
@@ -1118,7 +1180,7 @@ class _QuickStats extends StatelessWidget {
                 context.showSnackBar(
                   'Discoveries: ${user?.totalDiscoveries ?? 0}',
                 );
-                context.goNamed(AppRoutes.profile);
+                context.pushNamed(AppRoutes.profile);
               },
             ),
           ),
@@ -1133,7 +1195,7 @@ class _QuickStats extends StatelessWidget {
                 context.showSnackBar(
                   'Badges: ${user?.badges.length ?? 0}',
                 );
-                context.goNamed(AppRoutes.profile);
+                context.pushNamed(AppRoutes.profile);
               },
             ),
           ),
@@ -1150,7 +1212,7 @@ class _QuickStats extends StatelessWidget {
                 context.showSnackBar(
                   'Walking: ${km.toStringAsFixed(2)} km — opening Map',
                 );
-                context.goNamed(AppRoutes.map);
+                context.pushNamed(AppRoutes.map);
               },
             ),
           ),
